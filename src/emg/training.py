@@ -1,0 +1,1 @@
+# emg training script

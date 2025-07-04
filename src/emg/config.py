@@ -1,0 +1,1 @@
+# EMG deep learning pipeline configuration file
