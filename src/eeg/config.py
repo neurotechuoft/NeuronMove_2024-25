@@ -1,0 +1,1 @@
+# pipeline configuration for eeg deep learning model
