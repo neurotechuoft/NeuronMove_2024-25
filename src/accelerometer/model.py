@@ -1,0 +1,1 @@
+# accelerometer deep learning model script
