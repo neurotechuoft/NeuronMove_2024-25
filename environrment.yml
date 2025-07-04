@@ -1,0 +1,22 @@
+# environment.yml
+name: pd_tremor
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9           # Keep Python 3.9 for broader compatibility with TF 2.8.x
+  - pip
+  - numpy
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - pillow
+  - tensorflow==2.8.0  # <--- PIN TENSORFLOW TO A VERSION THAT CONSISTENTLY USES KERAS 2.X
+  - jupyter
+  - ipykernel
+  - pip:
+    - keras==2.8.0       # <--- PIN STANDALONE KERAS TO THIS VERSION (matches TF 2.8.x internal Keras)
+    - patchify         # Install via pip
+    - segmentation_models # Install via pip
+    # - -r requirements.txt
