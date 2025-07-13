@@ -1,4 +1,5 @@
 *.csv
+*.fif
 *.jpg
 *.png
 *.pkl
