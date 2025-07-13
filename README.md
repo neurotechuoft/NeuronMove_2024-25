@@ -1,1 +1,1 @@
-# NTUT25_Software
+# NeurotechUofT - Software
