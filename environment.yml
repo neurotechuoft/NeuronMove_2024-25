@@ -23,7 +23,6 @@ dependencies:
   # Deep Learning Core (TensorFlow CPU/GPU)
   - tensorflow==2.8.0  # <--- PIN TENSORFLOW TO A VERSION THAT CONSISTENTLY USES KERAS 2.X
   - keras-preprocessing
-  - cpufeature
   - scikit-learn
 
   # Deep Learning - Specific for our use case
