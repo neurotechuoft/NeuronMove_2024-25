@@ -13,7 +13,7 @@ from .config import (
 
 # --- Configuration for this conversion script ---
 # Define the directory where your raw MATLAB .mat files are located
-RAW_MATLAB_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'raw', 'matlab_eeg') # <--- Create this directory and place your .mat files here
+RAW_MATLAB_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'matlab_file')
 os.makedirs(RAW_MATLAB_DATA_DIR, exist_ok=True) 
 
 

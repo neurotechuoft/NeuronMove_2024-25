@@ -18,9 +18,9 @@ PROJECT_ROOT = os.path.abspath(os.path.join(_current_dir, '..', '..'))
 # Define key data directories relative to PROJECT_ROOT
 RAW_EEG_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'raw')
 PROCESSED_EEG_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'processed')
-CLASSIFIER_OUTPUTS_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'classifier_outputs') # As per your directory structure
+CLASSIFIER_OUTPUTS_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'classifier_outputs') 
 MISC_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'misc')
-ACCELEROMETER_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'accelerometer') # As per your directory structure
+ACCELEROMETER_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'accelerometer') 
 
 # --- Subject Lists ---
 PD_SX = [804, 805, 806, 807, 808, 809, 810, 811, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829]
@@ -49,7 +49,7 @@ RAW_FNAME_SUFFIX = "-epo.fif" # Assuming this suffix means it's a raw continuous
 
 # --- Processing Flags / Options ---
 # Set to True to overwrite existing processed files without warning
-OVERWRITE_PROCESSED_FILES = False 
+OVERWRITE_PROCESSED_FILES = True 
 
 # --- ICA Parameters ---
 ICA_N_COMPONENTS = 0.99 # Number of components to retain (e.g., 99% variance explained)
