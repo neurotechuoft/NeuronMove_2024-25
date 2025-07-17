@@ -39,14 +39,14 @@ TMIN, TMAX = -2.0, 2.0 # Epoching window in seconds
 BASELINE_TIME = (-0.2, 0) # Baseline window for initial correction (in seconds)
 
 # Channel Names (assuming these are the actual names in your .fif files)
-VEOG_CHANNEL_NAME = 'VEOG' # Example: check your .fif raw.info['ch_names']
-ACCEL_CHANNEL_NAMES = ['ACCEL_X', 'ACCEL_Y', 'ACCEL_Z'] # Example: check your .fif raw.info['ch_names']
-STIM_CHANNEL_NAME = 'STI 014' # Example: check your .fif raw.info['ch_names'] or mne.find_events output
+VEOG_CHANNEL_NAME = 'VEOG' 
+ACCEL_CHANNEL_NAMES = ['X', 'Y', 'Z'] 
+STIM_CHANNEL_NAME = 'STI 014' # mne.find_events output
 
 # --- File Naming Conventions ---
 # Base name for raw EEG files (e.g., "801_1_PD_ODDBALL" or "801_1_PD_REST")
 # The variable 'task_name' will be set in the main script loop (e.g., "ODDBALL" or "REST")
-RAW_FNAME_SUFFIX = "-epo.fif" # Assuming this suffix means it's a raw continuous file for now
+RAW_FNAME_SUFFIX = "-epo.fif" 
 
 # --- Processing Flags / Options ---
 # Set to True to overwrite existing processed files without warning
