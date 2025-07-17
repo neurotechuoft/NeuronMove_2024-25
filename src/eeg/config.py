@@ -30,9 +30,11 @@ ALL_SUBJECTS = [804, 890]
 
 # --- EEG Processing Parameters ---
 EVENT_ID = {
-    'S200': 200,  # Target
-    'S201': 201,  # Standard
-    'S202': 202   # Novelty
+    '1': 1, # Eyes Open (trigger 1)
+    '2': 2, # Eyes Open (trigger 2)
+    '3': 3, # Eyes Closed (trigger 3)
+    '4': 4, # Eyes Closed (trigger 4)
+    'boundary': 9999 # Special event for boundaries, e.g., end of epochs   
 }
 
 TMIN, TMAX = -2.0, 2.0 # Epoching window in seconds
