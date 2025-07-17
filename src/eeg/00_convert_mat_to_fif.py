@@ -12,7 +12,7 @@ from .config import (
 )
 
 # --- Configuration for this conversion script ---
-RAW_MATLAB_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'matlab_eeg') 
+RAW_MATLAB_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'matlab_file') 
 os.makedirs(RAW_MATLAB_DATA_DIR, exist_ok=True) 
 
 # --- Main Conversion Loop ---
