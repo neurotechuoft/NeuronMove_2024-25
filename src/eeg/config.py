@@ -16,16 +16,16 @@ _current_dir = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(_current_dir, '..', '..'))
 
 # Define key data directories relative to PROJECT_ROOT
-RAW_EEG_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'raw', 'eeg')
-PROCESSED_EEG_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'processed', 'eeg')
-CLASSIFIER_OUTPUTS_DIR = os.path.join(PROJECT_ROOT, 'data', 'classifier_outputs') # As per your directory structure
+RAW_EEG_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'raw')
+PROCESSED_EEG_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'processed')
+CLASSIFIER_OUTPUTS_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'classifier_outputs') # As per your directory structure
 MISC_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'misc')
 ACCELEROMETER_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'accelerometer') # As per your directory structure
 
 # --- Subject Lists ---
 PD_SX = [804, 805, 806, 807, 808, 809, 810, 811, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829]
 CTL_SX = [890, 891, 892, 893, 895, 896, 897, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 909, 910, 911, 912, 913, 914, 8060, 8070]
-ALL_SUBJECTS = PD_SX + CTL_SX
+ALL_SUBJECTS = [804, 890]
 
 # --- EEG Processing Parameters ---
 EVENT_ID = {

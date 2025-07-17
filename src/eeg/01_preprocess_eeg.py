@@ -164,7 +164,7 @@ def main():
         for session_num in sessions_to_process:
             # Construct raw filename based on the new naming convention
             # Use 'ODDBALL' as the task_name as per MATLAB scripts context
-            task_name = "ODDBALL" 
+            task_name = "REST" 
             
             raw_fname_base = f"{subj_id}_{session_num}_PD_{task_name}" 
             raw_fname_suffix = RAW_FNAME_SUFFIX # e.g., "-epo.fif"
