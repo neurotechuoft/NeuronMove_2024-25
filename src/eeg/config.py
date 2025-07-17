@@ -21,6 +21,7 @@ PROCESSED_EEG_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'processed')
 CLASSIFIER_OUTPUTS_DIR = os.path.join(PROJECT_ROOT, 'data', 'eeg', 'classifier_outputs') 
 MISC_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'misc')
 ACCELEROMETER_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'accelerometer') 
+RAW_MATLAB_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'matlab_file')
 
 # --- Subject Lists ---
 PD_SX = [804, 805, 806, 807, 808, 809, 810, 811, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829]
