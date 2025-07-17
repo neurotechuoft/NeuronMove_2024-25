@@ -119,41 +119,53 @@ def main():
                 if events_eeglab and isinstance(events_eeglab, (list, np.ndarray)): # Check if events_eeglab is a list/array
                     mne_annotations = []
                     for event in events_eeglab:
-                        onset_sample = event['latency'] - 1 
-                        duration_samples = 0 
+                        onset_sample = event['latency'] - 1 # EEGLAB is 1-indexed, MNE is 0-indexed
+                        duration_samples = 0 # Point event for now
                         
                         event_type_raw = event['type']
-                        description = str(event_type_raw) # Default to raw string
+                        
+                        # Determine the description string for MNE Annotations
+                        description_str = "UNPARSED_EVENT" # Default if nothing matches
 
                         if isinstance(event_type_raw, (int, float)):
-                            description = str(int(event_type_raw)) # Keep as '1', '2', '3', '4'
+                            # If the event type is already a number (e.g., 1, 2, 3, 4)
+                            description_str = str(int(event_type_raw))
                         elif isinstance(event_type_raw, str):
-                            # Handle 'S 3', 'S 4', etc. from MATLAB data
-                            if event_type_raw.startswith('S ') and len(event_type_raw) > 2: # Check for 'S ' prefix and enough length
+                            # Handle 'S 3', 'S 4', 'S 1', 'S 2'
+                            if event_type_raw.startswith('S ') and len(event_type_raw) > 2:
                                 try:
-                                    # Extract the number after 'S '
-                                    description = str(int(event_type_raw.split(' ')[1])) 
+                                    num_part = int(event_type_raw.split(' ')[1])
+                                    description_str = str(num_part) # This creates '1', '2', '3', '4'
                                 except ValueError:
-                                    # If it's 'S' followed by something non-numeric or another format, keep as is
-                                    pass # description remains default
-                            # Add a case for 'boundary' event (often ignored or handled specially)
+                                    # If it's 'S ' but not followed by a valid number, keep raw string
+                                    description_str = event_type_raw
+                            # Handle 'boundary' events
                             elif event_type_raw.lower() == 'boundary':
-                                description = 'boundary'
-                            # If there are other string event types like 'S200', 'S201' etc. from Oddball
-                            # You might need to add specific handling here if this script were used for Oddball.
-                            # For REST, 'S 3', 'S 4', 'S 1', 'S 2' are the primary ones.
+                                description_str = 'boundary'
+                            else:
+                                # For any other string event types not specifically handled
+                                description_str = event_type_raw
+                        # else: description_str remains "UNPARSED_EVENT"
 
-                        mne_annotations.append((onset_sample / sfreq, duration_samples / sfreq, description))
-                    
-                    if mne_annotations: # Only apply if there are annotations to add
+
+                        # Add to MNE annotations list, ONLY IF description_str is not the default unparsed
+                        if description_str != "UNPARSED_EVENT":
+                            mne_annotations.append((onset_sample / sfreq, duration_samples / sfreq, description_str))
+                        else:
+                            print(f"Warning: Skipping unparsed event type '{event_type_raw}' (latency {onset_sample}).")
+
+                    # Apply annotations only if there are valid ones
+                    if mne_annotations: 
                         raw_mne.set_annotations(mne.Annotations(
-                            [a[0] for a in mne_annotations],
-                            [a[1] for a in mne_annotations],
-                            [a[2] for a in mne_annotations],
+                            [a[0] for a in mne_annotations], # onsets in seconds
+                            [a[1] for a in mne_annotations], # durations in seconds
+                            [a[2] for a in mne_annotations], # descriptions (string)
                             orig_time=raw_mne.info['meas_date']
                         ), verbose=False)
                         print(f"Converted {len(mne_annotations)} EEGLAB events to MNE Annotations.")
-                else:
+                    else:
+                        print("No valid EEGLAB events found to convert (only 'boundary' or unparsed types).")
+                else: # if events_eeglab is None or empty list/np.ndarray
                     print("No EEGLAB events found to convert or events structure is unexpected.")
 
                 # --- Save to .fif ---
