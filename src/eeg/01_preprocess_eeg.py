@@ -23,7 +23,7 @@ from .config import (
 os.makedirs(PROCESSED_EEG_DATA_DIR, exist_ok=True)
 
 # --- Helper Function for APPLE_PDDys logic ---
-def apply_apple_preprocessing(raw, epochs): # Removed eeg_chans, veog_chan_name as they can be inferred from raw/epochs
+def apply_apple_preprocessing(raw, epochs): 
     """
     Replicates the core logic of APPLE_PDDys for a single subject.
     This will involve:
@@ -51,30 +51,31 @@ def apply_apple_preprocessing(raw, epochs): # Removed eeg_chans, veog_chan_name 
     """
     print("\n--- Applying APPLE-like Pre-processing ---")
     
-    # Identify EEG channels dynamically from the epochs object itself
-    eeg_ch_names = epochs.copy().pick_types(eeg=True, exclude='bads').ch_names
+    # Identify EEG channels dynamically from the raw object (for ICA fitting and general checks)
+    # Since we know raw only contains EEG now, this simplifies
+    eeg_ch_names_for_ica = raw.ch_names 
 
     # --- 1. Automated Bad Channel Detection & Interpolation ---
     bad_channels_detected = []
     
     # Only proceed if there are EEG channels to check
-    if eeg_ch_names:
-        epochs_data_eeg = epochs.get_data(picks=eeg_ch_names) # shape: (n_epochs, n_channels, n_times)
+    if eeg_ch_names_for_ica:
+        epochs_data_eeg = epochs.get_data(picks=eeg_ch_names_for_ica) # shape: (n_epochs, n_channels, n_times)
         
         # Criterion 1: Flat channels (std close to zero)
         channel_stds = np.std(epochs_data_eeg, axis=(0, 2))
         flat_ch_indices = np.where(channel_stds < BAD_CH_FLAT_THRESHOLD_UV)[0] 
         if len(flat_ch_indices) > 0:
-            flat_ch_names = [eeg_ch_names[i] for i in flat_ch_indices]
+            flat_ch_names = [eeg_ch_names_for_ica[i] for i in flat_ch_indices]
             print(f"Detected flat channels: {flat_ch_names}")
             bad_channels_detected.extend(flat_ch_names)
 
         # Criterion 2: Noisy channels (outlier std dev)
-        if len(eeg_ch_names) > 1 and len(channel_stds) > 1:
+        if len(eeg_ch_names_for_ica) > 1 and len(channel_stds) > 1:
             channel_stds_z = np.abs(scipy.stats.zscore(channel_stds))
             noisy_ch_indices_z = np.where(channel_stds_z > BAD_CH_NOISY_Z_THRESHOLD)[0]
             if len(noisy_ch_indices_z) > 0:
-                noisy_ch_names_z = [eeg_ch_names[i] for i in noisy_ch_indices_z]
+                noisy_ch_names_z = [eeg_ch_names_for_ica[i] for i in noisy_ch_indices_z]
                 print(f"Detected noisy channels (high std): {noisy_ch_names_z}")
                 bad_channels_detected.extend(noisy_ch_names_z)
         
@@ -110,9 +111,9 @@ def apply_apple_preprocessing(raw, epochs): # Removed eeg_chans, veog_chan_name 
     raw_for_ica = raw.copy().filter(l_freq=ICA_HIGH_PASS_FREQ, h_freq=None, verbose=False)
 
     ica = mne.preprocessing.ICA(n_components=ICA_N_COMPONENTS, method=ICA_METHOD, 
-                                random_state=ICA_RANDOM_STATE, max_iter='auto')
+                                random_state=ICA_RANDOM_STATE, max_iter='auto', verbose=False)
     print("Fitting ICA (this may take a moment)...")
-    ica.fit(raw_for_ica, picks=eeg_ch_names) # Fit ICA only on EEG channels
+    ica.fit(raw_for_ica, picks=eeg_ch_names_for_ica) # Fit ICA only on EEG channels
 
     # Find EOG components (blinks)
     eog_indices = []
