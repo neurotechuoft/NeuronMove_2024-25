@@ -3,20 +3,38 @@ name: pd_tremor
 channels:
   - defaults
   - conda-forge
+  - pytorch
 dependencies:
+  # Python Core 
   - python=3.9           # Keep Python 3.9 for broader compatibility with TF 2.8.x
   - pip
+
+  # MNE-Python and EEG-specific LIbraries
+  - mne
+  - h5py
   - numpy
+  - opnepyxl  
+  - xlrd
   - pandas
-  - scikit-learn
   - matplotlib
   - seaborn
-  - pillow
+  - scipy
+
+  # Deep Learning Core (TensorFlow CPU/GPU)
   - tensorflow==2.8.0  # <--- PIN TENSORFLOW TO A VERSION THAT CONSISTENTLY USES KERAS 2.X
+  - keras-preprocessing
+  - cpoufeature
+  - scikit-learn
+
+  # Deep Learning - Specific for our use case
+  - pillow
+  - imgaeio
+  - scikit-image
+
+  # Jupyter Notebooks
   - jupyter
   - ipykernel
-  - mne
-  - scipy
+
   - pip:
     - keras==2.8.0       # <--- PIN STANDALONE KERAS TO THIS VERSION (matches TF 2.8.x internal Keras)
     - patchify         # Install via pip
