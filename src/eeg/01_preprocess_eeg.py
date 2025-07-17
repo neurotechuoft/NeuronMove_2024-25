@@ -20,7 +20,7 @@ os.makedirs(PROCESSED_EEG_DATA_DIR, exist_ok=True)
 # Subject lists (from your MATLAB script)
 PD_SX = [804, 805, 806, 807, 808, 809, 810, 811, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829]
 CTL_SX = [890, 891, 892, 893, 895, 896, 897, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 909, 910, 911, 912, 913, 914, 8060, 8070]
-ALL_SUBJECTS = PD_SX + CTL_SX
+ALL_SUBJECTS = [804, 890] # making it small for the sake of testing
 
 # Define event IDs (from your MATLAB script 'S200','S201','S202')
 EVENT_ID = {
@@ -158,9 +158,9 @@ def main():
 
     # Load demographic data (optional for subject type lookup)
     try:
-        demographics_df = pd.read_excel(os.path.join(MISC_DATA_DIR, 'IMPORT_ME.xls'))
+        demographics_df = pd.read_excel(os.path.join(MISC_DATA_DIR, 'IMPORT_ME.xlsx'))
     except FileNotFoundError:
-        print(f"Warning: IMPORT_ME.xls not found in {MISC_DATA_DIR}. Subject types determined by hardcoded lists.")
+        print(f"Warning: IMPORT_ME.xlsx not found in {MISC_DATA_DIR}. Subject types determined by hardcoded lists.")
         demographics_df = None
 
     for subj_id in ALL_SUBJECTS:
