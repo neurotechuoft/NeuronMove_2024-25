@@ -124,29 +124,27 @@ def main():
                         
                         event_type_raw = event['type']
                         
-                        # Determine the description string for MNE Annotations
                         description_str = "UNPARSED_EVENT" # Default if nothing matches
 
                         if isinstance(event_type_raw, (int, float)):
-                            # If the event type is already a number (e.g., 1, 2, 3, 4)
                             description_str = str(int(event_type_raw))
                         elif isinstance(event_type_raw, str):
-                            # Handle 'S 3', 'S 4', 'S 1', 'S 2'
-                            if event_type_raw.startswith('S ') and len(event_type_raw) > 2:
+                            # Handle 'S  3', 'S  4', 'S  1', 'S  2'
+                            if event_type_raw.startswith('S') and ' ' in event_type_raw: # Check for 'S' and at least one space
                                 try:
-                                    num_part = int(event_type_raw.split(' ')[1])
-                                    description_str = str(num_part) # This creates '1', '2', '3', '4'
-                                except ValueError:
-                                    # If it's 'S ' but not followed by a valid number, keep raw string
-                                    description_str = event_type_raw
+                                    # Split by any whitespace and take the last non-empty part
+                                    parts = event_type_raw.split() # Splits by any whitespace
+                                    if parts and parts[-1].isdigit(): # Check if last part exists and is a digit
+                                        description_str = parts[-1] # This creates '1', '2', '3', '4'
+                                    else:
+                                        description_str = event_type_raw # Fallback to raw string
+                                except Exception: # Catch any other parsing errors
+                                    description_str = event_type_raw # Fallback
                             # Handle 'boundary' events
                             elif event_type_raw.lower() == 'boundary':
                                 description_str = 'boundary'
                             else:
-                                # For any other string event types not specifically handled
-                                description_str = event_type_raw
-                        # else: description_str remains "UNPARSED_EVENT"
-
+                                description_str = event_type_raw # For any other string event types
 
                         # Add to MNE annotations list, ONLY IF description_str is not the default unparsed
                         if description_str != "UNPARSED_EVENT":
