@@ -23,25 +23,27 @@ from .config import (
 os.makedirs(PROCESSED_EEG_DATA_DIR, exist_ok=True)
 
 # --- Helper Function for APPLE_PDDys logic ---
-def apply_apple_preprocessing(raw, epochs):
+def apply_apple_preprocessing(raw_full_channels, epochs_initial):
     """
     Replicates the core logic of APPLE_PDDys for a single subject.
     This will involve:
     1. Automated bad channel detection and interpolation (similar to FASTER/pop_rejchan).
-    2. Automated bad epoch detection and rejection (similar to FASTER/pop_autorej).
+    2. Automated bad epoch detection and rejection (similar to pop_autorej).
     3. ICA for artifact correction (esp. blinks).
 
     Parameters:
     ----------
-    raw : mne.io.Raw
-        The MNE Raw object (continuous data, used for ICA fitting).
-    epochs : mne.Epochs
-        The MNE Epochs object to be cleaned.
+    raw_full_channels : mne.io.Raw
+        The MNE Raw object containing ALL original channels (EEG, EOG, Misc),
+        used for ICA fitting. This object should be preloaded and pre-referenced.
+    epochs_initial : mne.Epochs
+        The MNE Epochs object created from raw_full_channels, containing ALL original
+        channels, and will be cleaned.
 
     Returns:
     -------
     epochs_cleaned : mne.Epochs
-        The cleaned Epochs object.
+        The cleaned Epochs object (still containing all channels initially).
     bad_channels : list
         List of identified bad channel names.
     bad_epochs_indices : list
@@ -52,12 +54,12 @@ def apply_apple_preprocessing(raw, epochs):
     print("\n--- Applying APPLE-like Pre-processing ---")
     
     # Identify EEG channels (excluding 'bads' and non-EEG types) for ICA fitting and further processing
-    # This picks only 'eeg' type channels.
-    eeg_ch_names_for_ica = raw.copy().pick_types(eeg=True, exclude='bads').ch_names
+    # This picks only 'eeg' type channels from the full raw object.
+    eeg_ch_names_for_ica = raw_full_channels.copy().pick_types(eeg=True, exclude='bads').ch_names
 
     # --- 1. Automated Bad Channel Detection & Interpolation ---
-    # Detection is done on EEG channels within epochs
-    temp_epochs_for_bad_ch_detection = epochs.copy().pick_types(eeg=True, exclude='bads')
+    # Detection is done on EEG channels within initial epochs
+    temp_epochs_for_bad_ch_detection = epochs_initial.copy().pick_types(eeg=True, exclude='bads')
     
     bad_channels_detected = []
     
@@ -83,16 +85,16 @@ def apply_apple_preprocessing(raw, epochs):
         
     bad_channels_final = list(np.unique(bad_channels_detected))
     
-    epochs_cleaned = epochs.copy() 
+    epochs_cleaned = epochs_initial.copy() # Start with a fresh copy of input epochs
     if bad_channels_final:
         print(f"Identified bad channels for interpolation: {bad_channels_final}")
-        # Add identified bads to raw.info['bads'], ensuring no duplicates
-        raw.info['bads'].extend(bad_channels_final) 
-        raw.info['bads'] = list(np.unique(raw.info['bads']))
+        # Add identified bads to raw_full_channels.info['bads'], ensuring no duplicates
+        raw_full_channels.info['bads'].extend(bad_channels_final) 
+        raw_full_channels.info['bads'] = list(np.unique(raw_full_channels.info['bads']))
         
-        # Interpolate on raw (continuous data) and epochs
-        raw.interpolate_bads(reset_bads=False, verbose=False) 
-        epochs_cleaned = epochs.copy().interpolate_bads(reset_bads=True, verbose=False) 
+        # Interpolate on raw (continuous data) and epochs (propagates from raw or direct on epochs)
+        raw_full_channels.interpolate_bads(reset_bads=False, verbose=False) 
+        epochs_cleaned = epochs_initial.copy().interpolate_bads(reset_bads=True, verbose=False) 
     else:
         print("No bad channels identified for interpolation.")
         
@@ -110,7 +112,7 @@ def apply_apple_preprocessing(raw, epochs):
     
     # --- 3. ICA for Artifact Correction ---
     # Apply high-pass filter to continuous raw data for ICA stability
-    raw_for_ica = raw.copy().filter(l_freq=ICA_HIGH_PASS_FREQ, h_freq=None, verbose=False)
+    raw_for_ica = raw_full_channels.copy().filter(l_freq=ICA_HIGH_PASS_FREQ, h_freq=None, verbose=False)
 
     ica = mne.preprocessing.ICA(n_components=ICA_N_COMPONENTS, method=ICA_METHOD, 
                                 random_state=ICA_RANDOM_STATE, max_iter='auto', verbose=False)
@@ -118,10 +120,10 @@ def apply_apple_preprocessing(raw, epochs):
     # Fit ICA on EEG channels. Ensure these channels are picked from raw_for_ica
     ica.fit(raw_for_ica, picks=eeg_ch_names_for_ica) 
 
-    # Find EOG components (blinks) - Now that VEOG is in the FIF!
+    # Find EOG components (blinks) - Now that VEOG is in the FIF from 00_convert_mat_to_fif.py!
     bad_ica_components = []
-    if VEOG_CHANNEL_NAME in raw.ch_names: 
-        eog_indices, scores = ica.find_bads_eog(raw, ch_name=VEOG_CHANNEL_NAME, measure='correlation', threshold='auto', verbose=False)
+    if VEOG_CHANNEL_NAME in raw_full_channels.ch_names: 
+        eog_indices, scores = ica.find_bads_eog(raw_full_channels, ch_name=VEOG_CHANNEL_NAME, measure='correlation', threshold='auto', verbose=False)
         if eog_indices:
             print(f"Automatically detected EOG components: {eog_indices}")
             bad_ica_components.extend(eog_indices)
@@ -130,7 +132,7 @@ def apply_apple_preprocessing(raw, epochs):
     else:
         print(f"Warning: VEOG channel '{VEOG_CHANNEL_NAME}' not found in raw data. Skipping automatic EOG detection via dedicated channel.")
         
-    # Remove duplicates if any (e.g., if manually added components later)
+    # Remove duplicates if any (e.g., if multiple detection methods were used)
     bad_ica_components = list(np.unique(bad_ica_components))
 
     if bad_ica_components:
@@ -210,83 +212,62 @@ def main():
             
             if raw is None: 
                 continue 
-
-            # --- Channel Management: Identify and Drop Aux Channels as per MATLAB pipeline ---
-            # MATLAB: EEG.VEOG=squeeze(EEG.data(64,:,:)); EEG.X/Y/Z=squeeze(EEG.data(65-67,:,:));
-            #         EEG.data=EEG.data(1:63,:,:); EEG.nbchan=63;
-            # This means EOG and ACCEL channels were removed from the main EEG.data.
             
-            # Identify channels by their MNE type
-            eog_ch_names_raw = raw.copy().pick_types(eog=True, exclude='bads').ch_names
-            misc_ch_names_raw = raw.copy().pick_types(misc=True, exclude='bads').ch_names
-            stim_ch_names_raw = raw.copy().pick_types(stim=True, exclude='bads').ch_names # Keep stim for events
+            # --- Store Original Raw (all channels) for ICA, Montage, Re-ref ---
+            # This copy will be used for operations that need all channels (like ICA fitting)
+            # or for which the output will be all channels (like initial epochs).
+            raw_original_all_channels = raw.copy() 
 
-            # Channels to be dropped from the main raw object AFTER useful information (like EOG for ICA) is used
-            # For now, we'll keep stim channel as it's needed for mne.find_events.
-            # Accel are dropped as they weren't used in further MATLAB steps for EEG.
-            channels_to_drop_post_processing = []
-            channels_to_drop_post_processing.extend(misc_ch_names_raw) # Drop accelerometers
-            # If VEOG is not needed for future stages of analysis (only for ICA artifact detection)
-            # and if MATLAB also dropped it from the main EEG, then add it here.
-            # MATLAB did store EEG.VEOG but then dropped it from EEG.data for ICA.
-            channels_to_drop_post_processing.extend(eog_ch_names_raw) 
-            
-            # --- Set Montage (for channel locations) ---
-            # Apply montage to all channels, MNE will handle types internally
+            # --- Set Montage (apply to raw_original_all_channels) ---
             try:
                 montage = mne.channels.make_standard_montage('standard_1005') 
-                raw.set_montage(montage, on_missing='ignore') 
-                print(f"Set montage: {montage.dig_ch_names[:5]}...")
+                raw_original_all_channels.set_montage(montage, on_missing='ignore') 
+                print(f"Set montage.")
             except Exception as e:
-                print(f"Warning: Could not set standard montage: {e}. Check channel names.")
+                print(f"Warning: Could not set standard montage on raw_original_all_channels: {e}. Check channel names.")
                 print("Proceeding without montage. Topoplots later may not work without channel locations.")
 
-            # --- Re-referencing to Average ---
-            # Apply average reference to EEG channels. MNE automatically excludes EOG/Misc from this.
-            if raw.get_channel_types(picks='eeg'): 
+            # --- Re-referencing to Average (apply to raw_original_all_channels) ---
+            if raw_original_all_channels.get_channel_types(picks='eeg'): 
                 print(f"Applying average reference to EEG channels.")
-                raw.set_eeg_reference(ref_channels='average', projection=True, verbose=False)
-                raw.apply_proj() 
+                # MNE automatically excludes EOG/Misc channels from average reference calculation by default
+                raw_original_all_channels.set_eeg_reference(ref_channels='average', projection=True, verbose=False)
+                raw_original_all_channels.apply_proj() 
             else:
                 print("No EEG channels found for re-referencing. Skipping average reference.")
 
+            # --- Epoching (from raw_original_all_channels) ---
+            # Events are in raw_original_all_channels.annotations from 00_convert_mat_to_fif.py
+            events, event_id_from_raw = mne.events_from_annotations(raw_original_all_channels, event_id=EVENT_ID)
 
-            # --- Epoching ---
-            if STIM_CHANNEL_NAME in raw.ch_names:
-                events = mne.find_events(raw, stim_channel=STIM_CHANNEL_NAME) 
+            if len(events) > 0 and any(event[2] in EVENT_ID.values() for event in events):
+                # Create epochs from the raw data that will be fed to APPLE_PDDys
+                epochs_initial = mne.Epochs(raw_original_all_channels, events, event_id=EVENT_ID, tmin=TMIN, tmax=TMAX,
+                                            baseline=BASELINE_TIME, preload=True, verbose=False)
                 
-                if len(events) > 0 and any(event[2] in EVENT_ID.values() for event in events):
-                    epochs = mne.Epochs(raw, events, event_id=EVENT_ID, tmin=TMIN, tmax=TMAX,
-                                        baseline=BASELINE_TIME, preload=True, verbose=False)
-                    
-                    print(f"Epoching complete. Found {len(epochs)} epochs matching event IDs.")
-                    if len(epochs) == 0:
-                        print("Warning: No epochs created. Check event IDs and time windows. Skipping subject.")
-                        continue 
-                else:
-                    print(f"Warning: No relevant events found in '{STIM_CHANNEL_NAME}' for subject {subj_id} session {session_num}. Skipping subject.")
+                print(f"Epoching complete. Found {len(epochs_initial)} epochs matching event IDs.")
+                if len(epochs_initial) == 0:
+                    print("Warning: No epochs created. Check event IDs and time windows. Skipping subject.")
                     continue 
             else:
-                print(f"Warning: Stimulus channel '{STIM_CHANNEL_NAME}' not found in raw data. Skipping subject.")
+                print(f"Warning: No relevant events found in raw.annotations for subject {subj_id} session {session_num}. Skipping subject.")
                 continue 
 
             # --- Apply APPLE-like Pre-processing ---
-            # Pass the raw object (with all channels including EOG) and the epoched data
+            # Pass the raw object with all channels for ICA fitting, and the initial epochs
             epochs_cleaned, bad_channels_found, bad_epochs_rejected_indices, bad_ica_components_found = \
-                apply_apple_preprocessing(raw, epochs) 
+                apply_apple_preprocessing(raw_original_all_channels, epochs_initial) 
             
-            # --- Post-ICA Channel Dropping (as per MATLAB pipeline) ---
-            # MATLAB dropped VEOG, X, Y, Z from the main EEG.data AFTER ICA.
-            # Here, we create a new Epochs object containing only EEG channels
-            # for consistency with MATLAB's final EEG.data structure.
-            epochs_final = epochs_cleaned.copy().pick_types(eeg=True)
-            print(f"Final epochs object contains {len(epochs_final.ch_names)} EEG channels.")
+            # --- Final Channel Picking (Post-ICA Dropping as per MATLAB pipeline) ---
+            # After ICA correction, pick only the EEG channels for the output
+            # This mimics MATLAB's EEG.data = EEG.data(1:63,:,:) step.
+            # Also ensures that only EEG channels are saved in the final processed file.
+            epochs_final_eeg_only = epochs_cleaned.copy().pick_types(eeg=True)
+            print(f"Final epochs object contains {len(epochs_final_eeg_only.ch_names)} EEG channels.")
 
-
-            # --- Save Cleaned Epochs ---
+            # --- Save Cleaned Epochs (EEG only) ---
             print(f"Saving cleaned epochs to {processed_fname}")
-            # Save the epochs_final (EEG only) for next stages
-            epochs_final.save(processed_fname, overwrite=OVERWRITE_PROCESSED_FILES, verbose=False) 
+            epochs_final_eeg_only.save(processed_fname, overwrite=OVERWRITE_PROCESSED_FILES, verbose=False) 
             
             print(f"Finished processing {subj_id}_Session{session_num}. Saved to {processed_fname}")
 

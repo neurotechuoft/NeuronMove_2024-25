@@ -119,25 +119,29 @@ def main():
                 if events_eeglab and isinstance(events_eeglab, (list, np.ndarray)): # Check if events_eeglab is a list/array
                     mne_annotations = []
                     for event in events_eeglab:
-                        # Event properties should be directly accessible if simplify_cells=True worked as expected
-                        onset_sample = event['latency'] - 1 # EEGLAB is 1-indexed, MNE is 0-indexed
-                        duration_samples = 0 # Point event
+                        onset_sample = event['latency'] - 1 
+                        duration_samples = 0 
                         
-                        # Ensure 'type' is convertible to str and extract ID if it's like 'SXXX'
                         event_type_raw = event['type']
+                        description = str(event_type_raw) # Default to raw string
+
                         if isinstance(event_type_raw, (int, float)):
-                            description = str(int(event_type_raw)) # Directly use number as string
+                            description = str(int(event_type_raw)) # Keep as '1', '2', '3', '4'
                         elif isinstance(event_type_raw, str):
-                            # Try to extract number if format is 'SXXX'
-                            if event_type_raw.startswith('S') and len(event_type_raw) > 1:
+                            # Handle 'S 3', 'S 4', etc. from MATLAB data
+                            if event_type_raw.startswith('S ') and len(event_type_raw) > 2: # Check for 'S ' prefix and enough length
                                 try:
-                                    description = str(int(event_type_raw[1:]))
+                                    # Extract the number after 'S '
+                                    description = str(int(event_type_raw.split(' ')[1])) 
                                 except ValueError:
-                                    description = event_type_raw # Fallback to raw string if conversion fails
-                            else:
-                                description = event_type_raw # Use raw string
-                        else:
-                            description = str(event_type_raw) # Fallback for other types
+                                    # If it's 'S' followed by something non-numeric or another format, keep as is
+                                    pass # description remains default
+                            # Add a case for 'boundary' event (often ignored or handled specially)
+                            elif event_type_raw.lower() == 'boundary':
+                                description = 'boundary'
+                            # If there are other string event types like 'S200', 'S201' etc. from Oddball
+                            # You might need to add specific handling here if this script were used for Oddball.
+                            # For REST, 'S 3', 'S 4', 'S 1', 'S 2' are the primary ones.
 
                         mne_annotations.append((onset_sample / sfreq, duration_samples / sfreq, description))
                     
