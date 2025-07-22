@@ -11,8 +11,6 @@ dependencies:
 
   # MNE-Python and EEG-specific LIbraries
   - mne
-  - mne_icalabel
-  - autoreject
   - h5py
   - numpy
   - openpyxl  
@@ -25,7 +23,6 @@ dependencies:
   # Deep Learning Core (TensorFlow CPU/GPU)
   - tensorflow==2.8.0  # <--- PIN TENSORFLOW TO A VERSION THAT CONSISTENTLY USES KERAS 2.X
   - keras-preprocessing
-  - cpoufeature
   - scikit-learn
 
   # Deep Learning - Specific for our use case
@@ -41,6 +38,6 @@ dependencies:
     - keras==2.8.0       # <--- PIN STANDALONE KERAS TO THIS VERSION (matches TF 2.8.x internal Keras)
     - patchify         # Install via pip
     - segmentation_models # Install via pip
-    - mne-icalabel
+    - mne_icalabel
     - autoreject
     # - -r requirements.txt
