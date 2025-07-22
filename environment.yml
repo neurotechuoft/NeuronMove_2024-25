@@ -11,6 +11,8 @@ dependencies:
 
   # MNE-Python and EEG-specific LIbraries
   - mne
+  - mne_icalabel
+  - autoreject
   - h5py
   - numpy
   - openpyxl  
