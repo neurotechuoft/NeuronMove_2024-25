@@ -59,14 +59,15 @@ class AccelerometerPreprocessor(MultiDataLoader):
             # filtfilt does a forward and backward filter preventing phase distortion and thereby preserving the integrity of the data
             self.multi_data[i] = np.array([filtfilt(b, a, channel) for channel in data]) # cast list of 1D array to 2D array (the original structure)
 
+
     def _bandpass_filter(self, lowcut=1.0, highcut=30.0, freq_resolution=1.0):
         '''
         Filters signal to only retain data within the frequency range (Hz), lowcut to highcut.
 
         Args:
-            lowcut: lower bound of bandpass cutoff (Hz), float type
-            highcut: upper bound of bandpass cutoff (Hz), float type
-            freq_resolution: controls how fine the filter distinguishes between frequencies (in Hz), float type
+            lowcut: Lower bound of bandpass cutoff (Hz), float type
+            highcut: Upper bound of bandpass cutoff (Hz), float type
+            freq_resolution: Controls how fine the filter distinguishes between frequencies (in Hz), float type
                 (e.g. given 1-30Hz bandpass, 1Hz resolution will gradually attenuate signals until fully attenuating at 0Hz and 31Hz) 
         '''
         
@@ -86,9 +87,38 @@ class AccelerometerPreprocessor(MultiDataLoader):
         for i, data in enumerate(self.multi_data):
             self.multi_data[i] = np.array([filtfilt(b, [1.0], channel) for channel in data])
     
-    def _segment_data(self, window_size, overlap_ratio):
-        raise NotImplementedError('This function is not yet implemented. Please look forward to its completion.')
-    
+
+    def _segment_data(self, window_size, percent_overlap):
+        '''
+        Segments data into overlapping windows with Hamming weights.
+        Hamming windows taper the edges of the windows to reduce spectral leakage.
+        This makes more suitable for Fourier or AR analysis.
+        Individual input data shape (3 channels, data points) to individual output data
+        shape (3 channels, windows, window size).
+
+        Args:
+            window_size: Number of samples per window.
+            percent_overlap: Percentage of overlap between consecutive windows.
+        '''
+        step_size = int(window_size * (1 - percent_overlap/100))
+        timesteps = self.multi_data[0].shape[1] # equivalent to self.loaders[0].timesteps
+        n_windows = (timesteps - window_size) // step_size + 1
+        hamming_window = np.hamming(window_size) # hamming to smooth the edges of the signal segment
+
+        # get windowed data one file at a time
+        for i, data in enumerate(self.multi_data):
+            windowed_data = np.zeros((3, n_windows, window_size)) 
+
+            # create all windows
+            for j in range(n_windows):
+                start_idx = j * step_size
+                end_idx = start_idx + window_size
+                segment = data[:, start_idx:end_idx] # slice out the jth window across all channels, segment is a 2D array
+                windowed_data[:, j, :] = segment * hamming_window[np.newaxis, :] # apply vectorized hamming -> broadcasts hamming 1D array across the 3 channels
+            
+            self.multi_data[i] = windowed_data # overwrite data with the now windowed data
+
+
     def _detect_peak_frequency(self, low_freq=3, high_freq=8, ar_order=6):
         raise NotImplementedError('This function is not yet implemented. Please look forward to its completion.')
     
