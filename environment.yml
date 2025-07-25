@@ -27,6 +27,7 @@ dependencies:
 
   # Deep Learning - Specific for our use case
   - pillow
+  - imageio
   - scikit-image
 
   # Jupyter Notebooks
@@ -37,4 +38,6 @@ dependencies:
     - keras==2.8.0       # <--- PIN STANDALONE KERAS TO THIS VERSION (matches TF 2.8.x internal Keras)
     - patchify         # Install via pip
     - segmentation_models # Install via pip
+    - mne_icalabel
+    - autoreject
     # - -r requirements.txt
