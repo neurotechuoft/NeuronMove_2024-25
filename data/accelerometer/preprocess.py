@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.signal import firwin, filtfilt, find_peaks
-from spectrum import pburg
+from spectrum import arburg, arma2psd
 from get_data import DataLoader, MultiDataLoader
 
 class AccelerometerPreprocessor(MultiDataLoader):
@@ -103,7 +103,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
         step_size = int(window_size * (1 - percent_overlap/100))
         timesteps = self.multi_data[0].shape[1] # equivalent to self.loaders[0].timesteps
         n_windows = (timesteps - window_size) // step_size + 1
-        hamming_window = np.hamming(window_size) # hamming to smooth the edges of the signal segment
+        hamming_window = np.hamming(window_size) # hamming to deal with spectral leakage
 
         # get windowed data one file at a time
         for i, data in enumerate(self.multi_data):
@@ -119,9 +119,94 @@ class AccelerometerPreprocessor(MultiDataLoader):
             self.multi_data[i] = windowed_data # overwrite data with the now windowed data
 
 
-    def _detect_peak_frequency(self, low_freq=3, high_freq=8, ar_order=6):
-        raise NotImplementedError('This function is not yet implemented. Please look forward to its completion.')
-    
+    def _detect_peak_frequency(self, low_freq=3.0, high_freq=8.0, ar_order=6, prominence_percent=10.0, abs_power_threshold=0.0, 
+                               relative_power_threshold_percent=0.0):
+        """
+        Detects peak frequency using an autoregressive model.
+        For each window segment, the AR model is fitted to the data and the one-sided PSD is calculated.
+        Peaks found from PSD are thresholded with specified prominence, the power difference between a peak and the lowest 
+        point of the surrounding local minima on either side of the peak, relative to the max power in the PSD. Note: Thresholding 
+        with prominence helps eliminate low-level vibrations being peaks that don't stand out relative to overall power distribution.
+        The peak frequency for each window is the frequency with the highest power (above absolute power threshold) within the 
+        frequency range -> low_freq to high_freq (Hz).
+        
+        Alters self.multi_data -> across all 3 accelerometer channels, all windowed data replaced with the respective dominant 
+        frequency, within specified frequency range, or 1 if not found.
+
+        Args:
+            low_freq: Lower frequency bound, float type
+            high_freq: Upper frequency bound, float type
+            ar_order: Order of the autoregressive model (how many past values the current value of a signal depends on), int type
+            prominence_percent: Percentage of max power in PSD used as prominence threshold with detecting peaks in PSD, float type
+            abs_power_threshold: Peaks will be invalid if its power is below this threshold, generally used if noise floor known, float type
+            relative_power_threshold: Peaks will be invalid if power is below this percentage of max power in PSD, float type
+        """
+        # Note: from _segment_data(), input's individual data shape is (3 channels, windows, window size)
+        for i, data in enumerate(self.multi_data):
+            peak_data = [[],[],[]] # for efficiency and memory purposes, holding peaks in a list then converting to np array at the end 
+            for channel in range(3):
+                for window in data[channel]:
+                    # get AR coefficients
+                    try:
+                        ar_coeffs, noise, _ = arburg(window, ar_order)
+                    # if error is encountered
+                    except Exception as e:
+                        raise RuntimeError(
+                            f'Error in AR model fitting.\n'
+                            f'Window shape: {window.shape}\n'
+                            f'Preview of window causing error: {window[:10]}'
+                        ) from e
+                    
+                    # estimate PSD (power spectral density <- frequency domain representation) using ar coefficients
+                    fs = self.meta_data_list[0]['Sampling frequency (Hz)'] # sampling frequency
+                    sample_interval = 1/fs
+                    
+                    # arma2psd returns two sided PSD (has both negative of positive frequencies),
+                    # accelerometer is a real signal so we only consider positive frequencies (one sided PSD)
+                    # since power is symmetric over 0Hz, multiply power by 2 to conserve total power
+                    psd_two_sided = arma2psd(ar_coeffs, rho=noise, T=sample_interval)
+                    psd_positive_half = psd_two_sided[len(psd_two_sided)//2:].copy()
+                    psd_one_sided = psd_positive_half[1:-1] * 2 # double all power except DC (0Hz) and Nyquist (fs/2 Hz)
+                    nfft = len(psd_one_sided) 
+                    freqs = np.linspace(0, fs/2, nfft) # all frequency bins
+                    
+                    # get indices of local maxima (peaks) in psd, while excluding peaks with 
+                    # prominence less than promience_ratio of max power
+                    peaks, _ = find_peaks(psd_one_sided, prominence=psd_one_sided.max() * prominence_percent/100) 
+
+                    if len(peaks) == 0:
+                        peak_data[channel].append(1) # 1, given no peaks
+                        continue
+                    
+                    # get frequencies within the specified range, low_freq to high_freq, that have peaks
+                    freqs_with_peak = freqs[peaks]
+                    freq_idx_mask = (freqs_with_peak > low_freq) & (freqs_with_peak < high_freq) # boolean mask
+                    freqs_with_peak = freqs_with_peak[freq_idx_mask]
+
+                    if len(freqs_with_peak) > 0:
+                        valid_peaks_idx_mask = np.isin(freqs, freqs_with_peak)
+                        # equivalent to: valid_peaks_idx = np.array([True if freq in freqs_with_peak else False for freq in freqs])
+                    else:
+                        peak_data[channel].append(1) # 1, given no peaks within specified frequency range -> Invalid
+                        continue
+
+                    # find frequency associated with valid peak with highest power/PSD amplitude
+                    max_power_idx = np.argmax(psd_one_sided[valid_peaks_idx_mask])
+                    # apply power threshold (larger of the 2 inputs)
+                    power_threshold = max(abs_power_threshold, relative_power_threshold_percent/100 * psd_one_sided.max())
+
+                    if psd_one_sided[max_power_idx] >= power_threshold:
+                        peak_data[channel].append(freqs[max_power_idx]) # append peak frequency
+                    else:
+                        peak_data[channel].append(1) # 1, given peak too low power -> Invalid 
+            
+            # modify data list
+            self.multi_data[i] = np.array(peak_data)
+
+
+
+
+    '''Future Implementations:'''
     # freq-time representation
     # feature extraction
     # visualization tools (maybe hold it in a class)
