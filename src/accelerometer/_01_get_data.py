@@ -121,3 +121,16 @@ class MultiDataLoader:
     def get_multi_info(self): # same process as multi_data
         # fetches info dynamically since values are mostly static (e.g. don't need a processed copy)
         return [loader.get_info() for loader in self.loaders] 
+    
+if __name__ == "__main__":
+    # Example usage
+    file_path = Path("example_data.pkl")
+    meta_data = {"description": "Example accelerometer data"}
+    
+    # Load single file
+    loader = DataLoader(file_path, meta_data)
+    print(loader.get_info())
+    
+    # Load multiple files
+    multi_loader = MultiDataLoader([file_path, file_path], [meta_data, meta_data])
+    print(multi_loader.get_multi_info())
