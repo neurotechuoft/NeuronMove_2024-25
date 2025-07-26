@@ -1,1 +1,0 @@
-# emg deep learning model script

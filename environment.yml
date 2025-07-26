@@ -13,7 +13,7 @@ dependencies:
   - mne
   - h5py
   - numpy
-  - opnepyxl  
+  - openpyxl  
   - xlrd
   - pandas
   - matplotlib
@@ -23,12 +23,11 @@ dependencies:
   # Deep Learning Core (TensorFlow CPU/GPU)
   - tensorflow==2.8.0  # <--- PIN TENSORFLOW TO A VERSION THAT CONSISTENTLY USES KERAS 2.X
   - keras-preprocessing
-  - cpoufeature
   - scikit-learn
 
   # Deep Learning - Specific for our use case
   - pillow
-  - imgaeio
+  - imageio
   - scikit-image
 
   # Jupyter Notebooks
@@ -39,4 +38,6 @@ dependencies:
     - keras==2.8.0       # <--- PIN STANDALONE KERAS TO THIS VERSION (matches TF 2.8.x internal Keras)
     - patchify         # Install via pip
     - segmentation_models # Install via pip
+    - mne_icalabel
+    - autoreject
     # - -r requirements.txt
