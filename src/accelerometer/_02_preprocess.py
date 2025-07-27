@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.signal import firwin, filtfilt, find_peaks
+from scipy.signal import firwin, filtfilt, find_peaks, savgol_filter
 from spectrum import arburg, arma2psd
 from get_data import DataLoader, MultiDataLoader
 
@@ -100,6 +100,10 @@ class AccelerometerPreprocessor(MultiDataLoader):
             window_size: Number of samples per window.
             percent_overlap: Percentage of overlap between consecutive windows.
         '''
+        # store to later use to convert windowed data back to timesteps
+        self.window_size = window_size
+        self.percent_overlap = percent_overlap
+
         step_size = int(window_size * (1 - percent_overlap/100))
         timesteps = self.multi_data[0].shape[1] # equivalent to self.loaders[0].timesteps
         n_windows = (timesteps - window_size) // step_size + 1
@@ -200,13 +204,59 @@ class AccelerometerPreprocessor(MultiDataLoader):
                     else:
                         peak_data[channel].append(1) # 1, given peak too low power -> Invalid 
             
-            # modify data list
+            # overwrite the data (for one file)
             self.multi_data[i] = np.array(peak_data)
 
 
+    def _map_windows_to_timesteps(self):
+        """
+        Maps window-based dominant frequencies to the original time scale of n_timesteps.
+        The dominant frequency for each window segments is upsampled to match the
+        length of the original accelerometer data. This results in a time-frequency representation
+        of the accelerometer data cross the three axes.
+
+        NOTE: Data must have been segmented using _segment_data() prior to calling this method.
+
+        Args:
+            window_size (int): Number of samples per window.
+            overlap_ratio (float): Fraction of overlap between consecutive windows.
+        """
+        # exits if attributes window_size and percent_overlap do not exist <- assigned in _segment_data()
+        if not hasattr(self, 'window_size') or not hasattr(self, 'percent_overlap'):
+            print('Attributes window_size and/or percent_overlap not assigned. _segment_data() has not been used.')
+            return None
+        
+        step_size = int(self.window_size * (1 - self.percent_overlap/100)) # compute step size that was initially used in _segment_data()
+
+        for i, data in enumerate(self.multi_data):
+            mapped_freq = [None] * 3
+
+            for channel in range(3):
+
+                # create window with all elements being the window's respective dominant frequency
+                # e.g. [3,4,...] -> [[3] * window_size, [4] * window_size, ...]
+                mapped_freq_1D = [[freq] * self.window_size for freq in data[channel]]
+                # flatten the nested list
+                mapped_freq_1D = [val for window in channel for val in window]
+                mapped_freq[channel] = mapped_freq_1D
+
+            # overwrite the data (for one file)
+            self.multi_data[i] = np.array(mapped_freq)
+    
+
+    def _smooth_signal(self, smoothing_window):
+        '''
+        Applies a Savitzky-Golay filter to reduce noise and provide a cleaner output signal for interpretation.
+
+        Args:
+            smoothing_window (int): Window used by savgol_filter()
+        '''
+        self.multi_data = [
+            savgol_filter(data, window_length=smoothing_window, polyorder=3, axis=1) # polyorder=2 or 3 for smoothing
+            for data in self.multi_data
+        ]
 
 
     '''Future Implementations:'''
-    # freq-time representation
     # feature extraction
     # visualization tools (maybe hold it in a class)
