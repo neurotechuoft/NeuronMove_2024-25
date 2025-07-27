@@ -213,13 +213,9 @@ class AccelerometerPreprocessor(MultiDataLoader):
         Maps window-based dominant frequencies to the original time scale of n_timesteps.
         The dominant frequency for each window segments is upsampled to match the
         length of the original accelerometer data. This results in a time-frequency representation
-        of the accelerometer data cross the three axes.
+        of the accelerometer data across the three axes.
 
         NOTE: Data must have been segmented using _segment_data() prior to calling this method.
-
-        Args:
-            window_size (int): Number of samples per window.
-            overlap_ratio (float): Fraction of overlap between consecutive windows.
         """
         # exits if attributes window_size and percent_overlap do not exist <- assigned in _segment_data()
         if not hasattr(self, 'window_size') or not hasattr(self, 'percent_overlap'):
