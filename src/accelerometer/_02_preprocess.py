@@ -1,7 +1,9 @@
 import numpy as np
 from scipy.signal import firwin, filtfilt, find_peaks, savgol_filter
 from spectrum import arburg, arma2psd
-from get_data import DataLoader, MultiDataLoader
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
+from _01_get_data import DataLoader, MultiDataLoader
 
 class AccelerometerPreprocessor(MultiDataLoader):
     def __init__(self, file_paths, sampling_freq=100):
@@ -253,6 +255,106 @@ class AccelerometerPreprocessor(MultiDataLoader):
         ]
 
 
-    '''Future Implementations:'''
-    # feature extraction
-    # visualization tools (maybe hold it in a class)
+    def plot_signal(self, t_start=0.0, t_end=None, indep_var='not labeled', file_idx=None):
+        '''
+        Plots time-series data in each accelerometer channel independently.
+        Will plot a certain time segment if specified, otherwise will plot entire series.
+        Plots data from all files, use 'Next' button to go through files sequentially and
+        'Exit' to exit the viewing.
+        Can plot a single file if its index in self.multi_data is provided.
+
+        Args:
+            t_start (float): Start of time segment to plot.
+            t_end (float): End of time segment to plot.
+            indep_var (str): Name of independent variable across input data.
+            file_idx (int): Index of file whose data you want to plot, if not
+                specified, all files' data will be plotted.
+        '''
+        # get timesteps 
+        fs = self.meta_data_list[0]['Sampling frequency (Hz)'] # assuming consistent over all data
+        timesteps = np.arange(self.multi_data[0].shape[1]) / fs
+        # if end not specified, t_end will default to the end of the series
+        t_end = timesteps[-1] if t_end is None else t_end
+
+        # fetch time segment vector
+        start_idx = int(t_start * fs)
+        end_idx = int(t_end * fs)
+        time_seg = timesteps[start_idx:end_idx]
+
+        current_idx = [0] # tracks which plot we are on <- mutuable counter in order to update in callback
+        files_to_plot = len(self.multi_data)
+
+        # if file_idx given, plots only that file's data
+        if file_idx is not None:
+            current_idx[0] = file_idx
+            files_to_plot = 1
+
+
+        # plot set up
+        fig, ax = plt.subplots(3,1, sharex=True)
+        plt.subplots_adjust(top=0.9, bottom=0.1) # add space at bottom for buttons
+        suptitle = fig.suptitle(f'Accelerometer data -> origin: {self.loaders[current_idx[0]].file_path} index: {current_idx[0]}')
+
+        # initialize plot with first file's data or file specified by file_idx
+        data_seg = self.multi_data[current_idx[0]][:, start_idx:end_idx]
+        # store each line in independent Line2D object created by .plot() to later overwrite when sequentially plotting each file's data
+        line_x, = ax[0].plot(time_seg, data_seg[0])
+        line_y, = ax[1].plot(time_seg, data_seg[1])
+        line_z, = ax[2].plot(time_seg, data_seg[2])
+        # set subplot titles and labels
+        ax[0].set_title('X channel')
+        ax[1].set_title('Y channel')
+        ax[2].set_title('Z channel')
+        ax[2].set_xlabel('Time (s)') # same label, implied since sharex=True
+        for a in ax:
+            a.set_ylabel(indep_var)
+
+        # button setups: Next, Previous, Exit
+        ax_next = plt.axes([0.8, 0.025, 0.08, 0.05]) # (x,y) location on plot and (width,height) of button respectively < constructed size starts from bottom-left corner
+        btn_next = Button(ax_next, 'Next') # button at position labelled 'Next'
+
+        ax_prev = plt.axes([0.7, 0.025, 0.08, 0.05])
+        btn_prev = Button(ax_prev, 'Previous')
+
+        ax_exit = plt.axes([0.9, 0.025, 0.08, 0.05])
+        btn_exit = Button(ax_exit, 'Exit')
+        
+        # nested helper function
+        def overwrite_plot(idx):
+            return None
+
+        # callback functions (from buttons)
+        def on_next(event):
+            next_idx = current_idx[0] + 1
+            if next_idx < files_to_plot:
+                # update current_idx and proceed to plot data at the next index
+                current_idx[0] = next_idx
+
+                # fetch data segment corresponding to time segment
+                data_seg = self.multi_data[current_idx[0]][:, start_idx:end_idx]
+                # update Line2D objects to overwrite previous plot
+                line_x.set_data(time_seg, data_seg[0])
+                line_y.set_data(time_seg, data_seg[1])
+                line_z.set_data(time_seg, data_seg[2])
+                # recalculate axis limits and scale view to bounds for the new data
+                for a in ax:
+                    a.relim()
+                    a.autoscale_view()
+                # overwrite plot title with new file position information
+                suptitle.set_text(f'Accelerometer data -> origin: {self.loaders[current_idx[0]].file_path} index: {current_idx[0]}')
+                # redraw the plot with all the altered plot parameters (data, etc.)
+                fig.canvas.draw_idle()
+            else:
+                print('End of data.')
+
+        def on_exit(event):
+            plt.close(fig)
+
+        # bind callback functions to the buttons
+        btn_next.on_clicked(on_next)
+        btn_exit.on_clicked(on_exit)
+
+        fig.tight_layout()
+        plt.show()
+
+
