@@ -255,7 +255,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
         ]
 
 
-    def plot_signal(self, t_start=0.0, t_end=None, indep_var='not labeled', file_idx=None):
+    def plot_signal(self, t_start=0.0, t_end=None, indep_var='not labeled', file_idx=0):
         '''
         Plots time-series data in each accelerometer channel independently.
         Will plot a certain time segment if specified, otherwise will plot entire series.
@@ -267,8 +267,8 @@ class AccelerometerPreprocessor(MultiDataLoader):
             t_start (float): Start of time segment to plot.
             t_end (float): End of time segment to plot.
             indep_var (str): Name of independent variable across input data.
-            file_idx (int): Index of file whose data you want to plot, if not
-                specified, all files' data will be plotted.
+            file_idx (int): Index of file whose data you want to start the data viewing, if not
+                specified, will start at index 0.
         '''
         # get timesteps 
         fs = self.meta_data_list[0]['Sampling frequency (Hz)'] # assuming consistent over all data
@@ -281,13 +281,8 @@ class AccelerometerPreprocessor(MultiDataLoader):
         end_idx = int(t_end * fs)
         time_seg = timesteps[start_idx:end_idx]
 
-        current_idx = [0] # tracks which plot we are on <- mutuable counter in order to update in callback
-        files_to_plot = len(self.multi_data)
-
-        # if file_idx given, plots only that file's data
-        if file_idx is not None:
-            current_idx[0] = file_idx
-            files_to_plot = 1
+        current_idx = [file_idx] # tracks which plot we are on <- mutuable counter in order to update in callback
+        n_files = len(self.multi_data)
 
 
         # plot set up
@@ -320,32 +315,45 @@ class AccelerometerPreprocessor(MultiDataLoader):
         btn_exit = Button(ax_exit, 'Exit')
         
         # nested helper function
-        def overwrite_plot(idx):
-            return None
+        def overwrite_plot(index):
+            '''
+            Overwrites previous plot with a new file's data/information.
+            '''
+            # fetch data segment corresponding to time segment
+            data_seg = self.multi_data[index][:, start_idx:end_idx]
+            # update Line2D objects to overwrite previous plot
+            line_x.set_data(time_seg, data_seg[0])
+            line_y.set_data(time_seg, data_seg[1])
+            line_z.set_data(time_seg, data_seg[2])
+            # recalculate axis limits and scale view to bounds for the new data
+            for a in ax:
+                a.relim()
+                a.autoscale_view()
+            # overwrite plot title with new file position information
+            suptitle.set_text(f'Accelerometer data -> origin: {self.loaders[current_idx[0]].file_path} index: {current_idx[0]}')
+            # redraw the plot with all the altered plot parameters (data, etc.)
+            fig.canvas.draw_idle()
 
         # callback functions (from buttons)
         def on_next(event):
             next_idx = current_idx[0] + 1
-            if next_idx < files_to_plot:
+            if next_idx < n_files:
                 # update current_idx and proceed to plot data at the next index
                 current_idx[0] = next_idx
-
-                # fetch data segment corresponding to time segment
-                data_seg = self.multi_data[current_idx[0]][:, start_idx:end_idx]
-                # update Line2D objects to overwrite previous plot
-                line_x.set_data(time_seg, data_seg[0])
-                line_y.set_data(time_seg, data_seg[1])
-                line_z.set_data(time_seg, data_seg[2])
-                # recalculate axis limits and scale view to bounds for the new data
-                for a in ax:
-                    a.relim()
-                    a.autoscale_view()
-                # overwrite plot title with new file position information
-                suptitle.set_text(f'Accelerometer data -> origin: {self.loaders[current_idx[0]].file_path} index: {current_idx[0]}')
-                # redraw the plot with all the altered plot parameters (data, etc.)
-                fig.canvas.draw_idle()
+                # use helper function to overwrite
+                overwrite_plot(current_idx[0])
             else:
-                print('End of data.')
+                print('End of data preview.')
+
+        def on_prev(event):
+            prev_idx = current_idx[0] - 1
+            if prev_idx >=0:
+                # update current_idx
+                current_idx[0] = prev_idx
+                # overwrite
+                overwrite_plot(current_idx[0])
+            else:
+                print('Start of data preview.')
 
         def on_exit(event):
             plt.close(fig)
@@ -353,6 +361,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
         # bind callback functions to the buttons
         btn_next.on_clicked(on_next)
         btn_exit.on_clicked(on_exit)
+        btn_prev.on_clicked(on_prev)
 
         fig.tight_layout()
         plt.show()
