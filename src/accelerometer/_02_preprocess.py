@@ -14,7 +14,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
                 'Sampling frequency (Hz)': sampling_freq # only takes a constant sampling_freq over all data files
             } for _ in file_paths] # create separate meta data dict for each file
         )
-        self.features = None
+        self.features = []
 
     
     def dataset_size(self):
@@ -253,6 +253,88 @@ class AccelerometerPreprocessor(MultiDataLoader):
             savgol_filter(data, window_length=smoothing_window, polyorder=3, axis=1) # polyorder=2 or 3 for smoothing
             for data in self.multi_data
         ]
+    
+    def _multiply(self):
+        self.multi_data = [np.prod(data, axis=0) for data in self.multi_data]
+    
+    def _thresholding(self, threshold=3.5):
+        self.multi_data = [np.where(data > threshold, 1, 0) for data in self.multi_data]
+
+    def _feature_extraction(self, threshold=3):
+        """
+        Extracts features from the data based on a threshold.
+
+        This method scans through the data to identify segments where the data equals 1.
+        It records the start and end indices of these segments and calculates their duration.
+        If the duration of a segment exceeds the specified threshold (converted from time steps to seconds),
+        the segment is added to the features list.
+
+        Updates self.features
+
+        Args:
+            threshold (int, optional): The minimum duration (in seconds) for a segment to be considered a feature. Defaults to 3.
+
+        Returns:
+            np.ndarray: An array of tuples, each containing the start index, end index, and duration of a feature.
+        """
+        # convert time threshold to timesteps using sampling frequency
+        timestep_threshold = threshold * self.meta_data_list[0]['Sampling frequency (Hz)']
+
+        for data in self.multi_data:
+            start = None
+            feature_list = []
+            for idx, val in enumerate(data):
+                if val == 1:
+                    if start is None:
+                        start = idx
+                    # edge case at the end of sequence
+                    elif idx == len(data) - 1:
+                        if idx - start > timestep_threshold:
+                            feature_list.append((start, end, end - start))    
+                else:
+                    if start is not None:
+                        end = idx
+                        # apply threshold after converting it to timesteps by multiplying with fs
+                        if end - start > timestep_threshold:
+                            feature_list.append((start, end, end - start))
+                        start = None
+            self.features.append(np.array(feature_list))
+        
+        # if all features have been extracted
+        check = 'Feature extraction complete.' if len(self.features) == len(self.multi_data) else 'Feature extraction could not be completed.'
+        print(check)
+
+
+    # --- PLOT and VISUALIZATION methods ---
+    # for validation and debugging
+
+    def visualize_features(self, file_idx=0):
+        '''
+        Plots extracted features from one file specified by file_idx.
+        
+        Args:
+            file_idx (int): Index of file whose features you want to visualize, if not
+                specified, will view file at index 0.
+        '''
+        fs = self.meta_data_list[file_idx]['Sampling frequency (Hz)']
+        timesteps = np.arange(self.multi_data[file_idx].shape[1]) / fs
+
+        fig, ax = plt.subplots(1,1)
+        line, = ax.plot(timesteps, self.multi_data[file_idx], label='Processed Data')
+
+        for (start, end, duration) in self.features[file_idx]:
+            ax.axvspan(start, end, color='r', alpha=0.3) # alpha is transparency
+            # mark each feature segment with duration (in seconds)
+            ax.text((start + end) / 2, 0.9, f'{(duration / fs): .2f}s', ha='center', fontsize=6, color=(1,0,0,0.5))
+
+        # assign labels
+        ax.set_title('Accelerometer Data with Extracted Features')
+        ax.set_xlabel('Time (s)')
+        ax.set_ylabel('Feature Presence (1/0)')
+        ax.grid(True, alpha=0.5)
+        ax.legend()
+
+        plt.show()
 
 
     def plot_signal(self, t_start=0.0, t_end=None, indep_var='not labeled', file_idx=0):
@@ -365,5 +447,3 @@ class AccelerometerPreprocessor(MultiDataLoader):
 
         fig.tight_layout()
         plt.show()
-
-
