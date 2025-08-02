@@ -260,7 +260,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
     def _thresholding(self, threshold=3.5):
         self.multi_data = [np.where(data > threshold, 1, 0) for data in self.multi_data]
 
-    def _feature_extraction(self, threshold=3):
+    def _feature_extraction(self, threshold=3.0):
         """
         Extracts features from the data based on a threshold.
 
@@ -269,13 +269,12 @@ class AccelerometerPreprocessor(MultiDataLoader):
         If the duration of a segment exceeds the specified threshold (converted from time steps to seconds),
         the segment is added to the features list.
 
-        Updates self.features
+        Updates self.features with extracted features across all files. Extracted features
+        are np.ndarray type with tuples containing the start index, end index, and duration of
+        a feature.
 
         Args:
-            threshold (int, optional): The minimum duration (in seconds) for a segment to be considered a feature. Defaults to 3.
-
-        Returns:
-            np.ndarray: An array of tuples, each containing the start index, end index, and duration of a feature.
+            threshold (float): The minimum duration (in seconds) for a segment to be considered a feature. Defaults to 3.0
         """
         # convert time threshold to timesteps using sampling frequency
         timestep_threshold = threshold * self.meta_data_list[0]['Sampling frequency (Hz)']
