@@ -2,6 +2,8 @@ import pickle
 import pandas as pd
 from pathlib import Path
 
+from .config import EXAMPLE_DATA_PATH, DATA_DIR
+
 class DataLoader:
     '''
     Loads data and stores relevant meta data, one file at a time.
@@ -124,7 +126,8 @@ class MultiDataLoader:
     
 if __name__ == "__main__":
     # Example usage
-    file_path = Path("example_data.pkl")
+    file_path = EXAMPLE_DATA_PATH
+    file_paths = list(DATA_DIR.glob("*.pkl"))  # Load all .pkl files in the data directory
     meta_data = {"description": "Example accelerometer data"}
     
     # Load single file
@@ -132,5 +135,5 @@ if __name__ == "__main__":
     print(loader.get_info())
     
     # Load multiple files
-    multi_loader = MultiDataLoader([file_path, file_path], [meta_data, meta_data])
+    multi_loader = MultiDataLoader(file_paths)
     print(multi_loader.get_multi_info())
