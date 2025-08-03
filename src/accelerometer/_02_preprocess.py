@@ -3,7 +3,7 @@ from scipy.signal import firwin, filtfilt, find_peaks, savgol_filter
 from spectrum import arburg, arma2psd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
-from _01_get_data import DataLoader, MultiDataLoader
+from ._01_get_data import DataLoader, MultiDataLoader
 
 class AccelerometerPreprocessor(MultiDataLoader):
     def __init__(self, file_paths, sampling_freq=100):
@@ -446,3 +446,6 @@ class AccelerometerPreprocessor(MultiDataLoader):
 
         fig.tight_layout()
         plt.show()
+
+if __name__ == "__main__":
+    

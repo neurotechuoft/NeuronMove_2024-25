@@ -18,6 +18,7 @@ dependencies:
   - pandas
   - matplotlib
   - seaborn
+  - spectrum
   - scipy
 
   # Deep Learning Core (TensorFlow CPU/GPU)
