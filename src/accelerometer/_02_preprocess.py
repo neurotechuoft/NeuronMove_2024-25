@@ -314,7 +314,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
                 specified, will view file at index 0.
         '''
         fs = self.meta_data_list[file_idx]['Sampling frequency (Hz)']
-        timesteps = np.arange(self.multi_data[file_idx].shape[1]) / fs
+        timesteps = np.arange(self.multi_data[file_idx].shape[0]) / fs
 
         fig, ax = plt.subplots(1,1)
         line, = ax.plot(timesteps, self.multi_data[file_idx], label='Processed Data')
