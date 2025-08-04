@@ -230,8 +230,11 @@ class AccelerometerPreprocessor(MultiDataLoader):
             for channel in range(3):
 
                 # create window with all elements being the window's respective dominant frequency
-                # e.g. [3,4,...] -> [[3] * window_size, [4] * window_size, ...]
-                mapped_freq_windows = [[freq] * self.window_size for freq in data[channel]]
+                # e.g. [3,4,...,8] -> [[3] * step_size, [4] * step_size, ..., [8] * window_size]
+                mapped_freq_windows = [
+                    [freq] * self.window_size if i + 1 == len(data[channel]) else [freq] * step_size
+                    for i, freq in enumerate(data[channel])
+                ]
                 # flatten the nested list
                 mapped_freq_1D = [val for window in mapped_freq_windows for val in window]
                 mapped_freq[channel] = mapped_freq_1D
@@ -442,22 +445,37 @@ class AccelerometerPreprocessor(MultiDataLoader):
         btn_exit.on_clicked(on_exit)
         btn_prev.on_clicked(on_prev)
 
-        fig.tight_layout()
+        fig.set_constrained_layout(True)
         plt.show()
 
 if __name__ == "__main__":
-    try:
-        file_paths = list(DATA_DIR.glob("*.pkl"))
-        if not file_paths:
-            raise FileNotFoundError("No .pkl files found in the specified directory.")
-    except FileNotFoundError as e:
-        print(e)
-        print("Please ensure the data directory contains accelerometer data files.")
-        file_paths = []
-    
+    # getting all files
+    # try:
+    #     file_paths = list(DATA_DIR.glob("*.pkl"))
+    #     if not file_paths:
+    #         raise FileNotFoundError("No .pkl files found in the specified directory.")
+    # except FileNotFoundError as e:
+    #     print(e)
+    #     print("Please ensure the data directory contains accelerometer data files.")
+    #     file_paths = []
+
+    # --- Visualizing Specific Selection of Subjects ---
+    # 2 healthy controls
+    h_file_1 = DATA_DIR / "900_1_accelerometer.pkl"
+    h_file_2 = DATA_DIR / "901_1_accelerometer.pkl"  
+    # first pd patient
+    pd_off_file_1 = DATA_DIR / "801_1_accelerometer.pkl" # PD patient OFF medication
+    pd_on_file_1 = DATA_DIR / "801_2_accelerometer.pkl"  # Same PD patient ON medication
+    # second pd patient
+    pd_off_file_2 = DATA_DIR / "802_1_accelerometer.pkl" 
+    pd_on_file_2 = DATA_DIR / "802_2_accelerometer.pkl"
+    # their file paths
+    # file_paths = [h_file_1, h_file_2, pd_off_file_1, pd_on_file_1, pd_off_file_2, pd_on_file_2]
+    file_paths = [pd_off_file_1]
+
     if file_paths:
         preprocessor = AccelerometerPreprocessor(file_paths, sampling_freq=SAMPLING_FREQ)
-        print("AccelerometerPreprocessor instantiatead.")
+        print("AccelerometerPreprocessor instantiated.")
         preprocessor.dataset_size()
 
         print("Removing signal drift...")
@@ -482,19 +500,23 @@ if __name__ == "__main__":
         print("Mapping frequencies back to time series...")
         preprocessor._map_windows_to_timesteps()
 
-        print("Smoothing signal...")
-        preprocessor._smooth_signal(smoothing_window=SMOOTHING_WINDOW)
+        # print("Smoothing signal...")
+        # preprocessor._smooth_signal(smoothing_window=SMOOTHING_WINDOW)
 
-        print("Multiplying across channels...")
-        preprocessor._multiply()
+        print("Please plot...")
+        preprocessor.plot_signal(indep_var='Dominant Frequency (Hz)')
 
-        print("Applying thresholding...")
-        preprocessor._thresholding(threshold=FEATURE_THRESHOLD)
+        # print("Multiplying across channels...")
+        # preprocessor._multiply()
 
-        print("Extracting features...")
-        preprocessor._feature_extraction(threshold=FEATURE_EXTRACTION_DURATION_THRESHOLD)
+        # print("Applying thresholding...")
+        # preprocessor._thresholding(threshold=FEATURE_THRESHOLD)
 
-        print("Visualizing features...")
-        preprocessor.visualize_features(file_idx=0)
+        # print("Extracting features...")
+        # preprocessor._feature_extraction(threshold=FEATURE_EXTRACTION_DURATION_THRESHOLD)
+
+        # print("Visualizing features...")
+        # preprocessor.visualize_features(file_idx=0)
+
     else:
         print("No files to process. Please check the data directory.")
