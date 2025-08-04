@@ -3,7 +3,9 @@ from scipy.signal import firwin, filtfilt, find_peaks, savgol_filter
 from spectrum import arburg, arma2psd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
+
 from ._01_get_data import DataLoader, MultiDataLoader
+from .config import *
 
 class AccelerometerPreprocessor(MultiDataLoader):
     def __init__(self, file_paths, sampling_freq=100):
@@ -29,6 +31,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
         
         valid_data = [data for data in self.multi_data if data is not None] # all not NoneType are considered valid
 
+        none_files = [] # will be populated if there are any NoneType data in self.multi_data
         # gives list of tuples with index (in self.multi_data) and file path for each file associated with NoneType data 
         if len(valid_data) != len(self.multi_data):
             none_files = [
@@ -107,18 +110,19 @@ class AccelerometerPreprocessor(MultiDataLoader):
         self.percent_overlap = percent_overlap
 
         step_size = int(window_size * (1 - percent_overlap/100))
-        timesteps = self.multi_data[0].shape[1] # equivalent to self.loaders[0].timesteps
-        n_windows = (timesteps - window_size) // step_size + 1
-        hamming_window = np.hamming(window_size) # hamming to deal with spectral leakage
-
-        # get windowed data one file at a time
+        hamming_window = np.hamming(window_size) # create hamming window of specified size  
+                
         for i, data in enumerate(self.multi_data):
-            windowed_data = np.zeros((3, n_windows, window_size)) 
+            timesteps = data.shape[1]
+            n_windows = (timesteps - window_size) // step_size + 1
+            
+            windowed_data = np.zeros((3, n_windows, window_size)) # hamming to deal with spectral leakage 
 
             # create all windows
             for j in range(n_windows):
                 start_idx = j * step_size
-                end_idx = start_idx + window_size
+                end_idx = j + step_size
+
                 segment = data[:, start_idx:end_idx] # slice out the jth window across all channels, segment is a 2D array
                 windowed_data[:, j, :] = segment * hamming_window[np.newaxis, :] # apply vectorized hamming -> broadcasts hamming 1D array across the 3 channels
             
@@ -448,4 +452,55 @@ class AccelerometerPreprocessor(MultiDataLoader):
         plt.show()
 
 if __name__ == "__main__":
+    try:
+        file_paths = list(DATA_DIR.glob("*.pkl"))
+        if not file_paths:
+            raise FileNotFoundError("No .pkl files found in the specified directory.")
+    except FileNotFoundError as e:
+        print(e)
+        print("Please ensure the data directory contains accelerometer data files.")
+        file_paths = []
     
+    if file_paths:
+        preprocessor = AccelerometerPreprocessor(file_paths, sampling_freq=SAMPLING_FREQ)
+        print("AccelerometerPreprocessor instantiatead.")
+        preprocessor.dataset_size()
+
+        print("Removing signal drift...")
+        preprocessor._remove_drift(window_size=DRIFT_WINDOW_SIZE)
+
+        print("Applying bandpass filter...")
+        preprocessor._bandpass_filter(lowcut=BANDPASS_LOWCUT, highcut=BANDPASS_HIGHCUT, freq_resolution=BANDPASS_FREQ_RESOLUTION)
+
+        print("Segmenting data...")
+        preprocessor._segment_data(window_size=SEGMENT_WINDOW_SIZE, percent_overlap=SEGMENT_PERCENT_OVERLAP)
+
+        print("Detecting peak frequencies in windows...")
+        preprocessor._detect_peak_frequency(
+            low_freq=PEAK_LOW_FREQ, 
+            high_freq=PEAK_HIGH_FREQ, 
+            ar_order=AR_ORDER, 
+            prominence_percent=PROMINENCE_PERCENT, 
+            abs_power_threshold=ABS_POWER_THRESHOLD, 
+            relative_power_threshold_percent=RELATIVE_POWER_THRESHOLD_PERCENT
+        )
+
+        print("Mapping frequencies back to time series...")
+        preprocessor._map_windows_to_timesteps()
+
+        print("Smoothing signal...")
+        preprocessor._smooth_signal(smoothing_window=SMOOTHING_WINDOW)
+
+        print("Multiplying across channels...")
+        preprocessor._multiply()
+
+        print("Applying thresholding...")
+        preprocessor._thresholding(threshold=FEATURE_THRESHOLD)
+
+        print("Extracting features...")
+        preprocessor._feature_extraction(threshold=FEATURE_EXTRACTION_DURATION_THRESHOLD)
+
+        print("Visualizing features...")
+        preprocessor.visualize_features(file_idx=0)
+    else:
+        print("No files to process. Please check the data directory.")
