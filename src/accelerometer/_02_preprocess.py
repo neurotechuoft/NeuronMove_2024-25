@@ -155,9 +155,10 @@ class AccelerometerPreprocessor(MultiDataLoader):
         for i, data in enumerate(self.multi_data):
             peak_data = [[],[],[]] # for efficiency and memory purposes, holding peaks in a list then converting to np array at the end 
             for channel in range(3):
-                for window in data[channel]:
+                for j, window in enumerate(data[channel]):
                     dominant_freq = 1 # default value if no peak found or model failure
-                    
+                    max_power_idx = None # for sanity check
+
                     try:
                         # get AR coefficients and noise estimate using Burg's method
                         ar_coeffs, noise, _ = arburg(window, ar_order)
@@ -166,12 +167,8 @@ class AccelerometerPreprocessor(MultiDataLoader):
                         fs = self.meta_data_list[0]['Sampling frequency (Hz)'] # sampling frequency
                         sample_interval = 1/fs
                         
-                        # arma2psd returns two sided PSD (has both negative of positive frequencies),
-                        # accelerometer is a real signal so we only consider positive frequencies (one sided PSD)
-                        # since power is symmetric over 0Hz, multiply power by 2 to conserve total power
-                        psd_two_sided = arma2psd(ar_coeffs, rho=noise, T=sample_interval)
-                        psd_positive_half = psd_two_sided[len(psd_two_sided)//2:].copy()
-                        psd_one_sided = psd_positive_half[1:-1] * 2 # double all power except DC (0Hz) and Nyquist (fs/2 Hz)
+                        # arma2psd returns one sided PSD covering frequencies from 0Hz up to nyquist (fs/2)
+                        psd_one_sided = arma2psd(ar_coeffs, rho=noise, T=sample_interval)
                         nfft = len(psd_one_sided) 
                         freqs = np.linspace(0, fs/2, nfft) # all frequency bins
                         
@@ -180,28 +177,38 @@ class AccelerometerPreprocessor(MultiDataLoader):
                         peaks, _ = find_peaks(psd_one_sided, prominence=psd_one_sided.max() * prominence_percent/100) 
 
                         if len(peaks) > 0:
-                            # get frequencies within the specified range, low_freq to high_freq, that have peaks
-                            freqs_with_peak = freqs[peaks]
-                            freq_idx_mask = (freqs_with_peak > low_freq) & (freqs_with_peak < high_freq) # boolean mask
-                            freqs_with_peak = freqs_with_peak[freq_idx_mask]
+                            # get indices that have peaks while having a frequency within the specified range, low_freq to high_freq
+                            freq_idx_mask = (freqs[peaks] > low_freq) & (freqs[peaks] < high_freq) # boolean mask
+                            # apply mask on peaks (containing indicies of peaks) to directly get which indicies are valid,
+                            # do this as opposed to finding the valid frequency since when later creating a mask you would otherwise have
+                            # np.isin(freqs, valid_freqs).astype(int) which leads to imprecision comparing floating point to floating point  
+                            valid_idx = peaks[freq_idx_mask]
 
-                            if len(freqs_with_peak) > 0:
-                                valid_peaks_idx_mask = np.isin(freqs, freqs_with_peak)
+                            if len(valid_idx) > 0:
+                                # create mask
+                                valid_peaks_idx_mask = np.isin(np.arange(len(freqs)), valid_idx).astype(int)
                                 # find frequency associated with valid peak with highest power/PSD amplitude
-                                max_power_idx = np.argmax(psd_one_sided[valid_peaks_idx_mask])
+                                # multiply by int mask to preserve length of psd_one_sided for argmax to retrieve the index with respect to psd_one_sided
+                                max_power_idx = np.argmax(psd_one_sided * valid_peaks_idx_mask)
                                 # apply power threshold (larger of the 2 inputs)
                                 power_threshold = max(abs_power_threshold, relative_power_threshold_percent/100 * psd_one_sided.max())
 
                                 if psd_one_sided[max_power_idx] >= power_threshold:
                                     dominant_freq = freqs[max_power_idx] # append peak frequency
-                                # equivalent to: valid_peaks_idx = np.array([True if freq in freqs_with_peak else False for freq in freqs])
-                            
+                                
+
                     except (ValueError, Exception) as e:
                         # Print a warning message but continue processing other windows
-                        # This tells you which file and windo had the problem without crashing
+                        # This tells you which file and window had the problem without crashing
                         print(f"Warning: AR model fitting dailed for a window in file {i}, channel {channel}. Details: {e}")
                         # The 'dominant_frequency' is already set to 1, so no need to change it.
+                    
 
+                    # # sanity check > make sure dominant freqs are not all 1s
+                    # if j % 20 == 0:
+                    #     power_str = psd_one_sided[max_power_idx] if max_power_idx is not None else 'invalid'
+                    #     print(f'Dominant Freq: {dominant_freq} ------ with Power (if applicable): {power_str} ------ PSD max: {psd_one_sided.max()}')
+                    
                     peak_data[channel].append(dominant_freq) 
             
             # overwrite the data (for one file)
@@ -497,26 +504,30 @@ if __name__ == "__main__":
             relative_power_threshold_percent=RELATIVE_POWER_THRESHOLD_PERCENT
         )
 
+        # print(preprocessor.multi_data)
+
         print("Mapping frequencies back to time series...")
         preprocessor._map_windows_to_timesteps()
 
-        # print("Smoothing signal...")
-        # preprocessor._smooth_signal(smoothing_window=SMOOTHING_WINDOW)
+        # print(preprocessor.multi_data)
+
+        print("Smoothing signal...")
+        preprocessor._smooth_signal(smoothing_window=SMOOTHING_WINDOW)
 
         print("Please plot...")
         preprocessor.plot_signal(indep_var='Dominant Frequency (Hz)')
 
-        # print("Multiplying across channels...")
-        # preprocessor._multiply()
+        print("Multiplying across channels...")
+        preprocessor._multiply()
 
-        # print("Applying thresholding...")
-        # preprocessor._thresholding(threshold=FEATURE_THRESHOLD)
+        print("Applying thresholding...")
+        preprocessor._thresholding(threshold=FEATURE_THRESHOLD)
 
-        # print("Extracting features...")
-        # preprocessor._feature_extraction(threshold=FEATURE_EXTRACTION_DURATION_THRESHOLD)
+        print("Extracting features...")
+        preprocessor._feature_extraction(threshold=FEATURE_EXTRACTION_DURATION_THRESHOLD)
 
-        # print("Visualizing features...")
-        # preprocessor.visualize_features(file_idx=0)
+        print("Visualizing features...")
+        preprocessor.visualize_features(file_idx=0)
 
     else:
         print("No files to process. Please check the data directory.")
