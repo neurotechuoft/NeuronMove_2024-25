@@ -111,7 +111,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
 
         step_size = int(window_size * (1 - percent_overlap/100))
         hamming_window = np.hamming(window_size) # create hamming window of specified size  
-                
+
         for i, data in enumerate(self.multi_data):
             timesteps = data.shape[1]
             n_windows = (timesteps - window_size) // step_size + 1
@@ -121,7 +121,7 @@ class AccelerometerPreprocessor(MultiDataLoader):
             # create all windows
             for j in range(n_windows):
                 start_idx = j * step_size
-                end_idx = j + step_size
+                end_idx = start_idx + window_size
 
                 segment = data[:, start_idx:end_idx] # slice out the jth window across all channels, segment is a 2D array
                 windowed_data[:, j, :] = segment * hamming_window[np.newaxis, :] # apply vectorized hamming -> broadcasts hamming 1D array across the 3 channels
