@@ -3,7 +3,9 @@
 import os
 from pathlib import Path
 
-DATA_DIR = Path("data/accelerometer/raw")
+PROJECT_ROOT = Path(__file__).resolve().parents[2] 
+
+DATA_DIR = PROJECT_ROOT / "data/accelerometer/raw"  # assuming this is two levels up from the config file
 
 EXAMPLE_DATA_FILE = "801_1_accelerometer.pkl"
 EXAMPLE_DATA_PATH = DATA_DIR / EXAMPLE_DATA_FILE
