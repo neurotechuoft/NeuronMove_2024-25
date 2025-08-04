@@ -156,59 +156,53 @@ class AccelerometerPreprocessor(MultiDataLoader):
             peak_data = [[],[],[]] # for efficiency and memory purposes, holding peaks in a list then converting to np array at the end 
             for channel in range(3):
                 for window in data[channel]:
-                    # get AR coefficients
+                    dominant_freq = 1 # default value if no peak found or model failure
+                    
                     try:
+                        # get AR coefficients and noise estimate using Burg's method
                         ar_coeffs, noise, _ = arburg(window, ar_order)
-                    # if error is encountered
-                    except Exception as e:
-                        raise RuntimeError(
-                            f'Error in AR model fitting.\n'
-                            f'Window shape: {window.shape}\n'
-                            f'Preview of window causing error: {window[:10]}'
-                        ) from e
-                    
-                    # estimate PSD (power spectral density <- frequency domain representation) using ar coefficients
-                    fs = self.meta_data_list[0]['Sampling frequency (Hz)'] # sampling frequency
-                    sample_interval = 1/fs
-                    
-                    # arma2psd returns two sided PSD (has both negative of positive frequencies),
-                    # accelerometer is a real signal so we only consider positive frequencies (one sided PSD)
-                    # since power is symmetric over 0Hz, multiply power by 2 to conserve total power
-                    psd_two_sided = arma2psd(ar_coeffs, rho=noise, T=sample_interval)
-                    psd_positive_half = psd_two_sided[len(psd_two_sided)//2:].copy()
-                    psd_one_sided = psd_positive_half[1:-1] * 2 # double all power except DC (0Hz) and Nyquist (fs/2 Hz)
-                    nfft = len(psd_one_sided) 
-                    freqs = np.linspace(0, fs/2, nfft) # all frequency bins
-                    
-                    # get indices of local maxima (peaks) in psd, while excluding peaks with 
-                    # prominence less than promience_ratio of max power
-                    peaks, _ = find_peaks(psd_one_sided, prominence=psd_one_sided.max() * prominence_percent/100) 
 
-                    if len(peaks) == 0:
-                        peak_data[channel].append(1) # 1, given no peaks
-                        continue
-                    
-                    # get frequencies within the specified range, low_freq to high_freq, that have peaks
-                    freqs_with_peak = freqs[peaks]
-                    freq_idx_mask = (freqs_with_peak > low_freq) & (freqs_with_peak < high_freq) # boolean mask
-                    freqs_with_peak = freqs_with_peak[freq_idx_mask]
+                        # estimate PSD (power spectral density <- frequency domain representation) using ar coefficients
+                        fs = self.meta_data_list[0]['Sampling frequency (Hz)'] # sampling frequency
+                        sample_interval = 1/fs
+                        
+                        # arma2psd returns two sided PSD (has both negative of positive frequencies),
+                        # accelerometer is a real signal so we only consider positive frequencies (one sided PSD)
+                        # since power is symmetric over 0Hz, multiply power by 2 to conserve total power
+                        psd_two_sided = arma2psd(ar_coeffs, rho=noise, T=sample_interval)
+                        psd_positive_half = psd_two_sided[len(psd_two_sided)//2:].copy()
+                        psd_one_sided = psd_positive_half[1:-1] * 2 # double all power except DC (0Hz) and Nyquist (fs/2 Hz)
+                        nfft = len(psd_one_sided) 
+                        freqs = np.linspace(0, fs/2, nfft) # all frequency bins
+                        
+                        # get indices of local maxima (peaks) in psd, while excluding peaks with 
+                        # prominence less than promience_ratio of max power
+                        peaks, _ = find_peaks(psd_one_sided, prominence=psd_one_sided.max() * prominence_percent/100) 
 
-                    if len(freqs_with_peak) > 0:
-                        valid_peaks_idx_mask = np.isin(freqs, freqs_with_peak)
-                        # equivalent to: valid_peaks_idx = np.array([True if freq in freqs_with_peak else False for freq in freqs])
-                    else:
-                        peak_data[channel].append(1) # 1, given no peaks within specified frequency range -> Invalid
-                        continue
+                        if len(peaks) > 0:
+                            # get frequencies within the specified range, low_freq to high_freq, that have peaks
+                            freqs_with_peak = freqs[peaks]
+                            freq_idx_mask = (freqs_with_peak > low_freq) & (freqs_with_peak < high_freq) # boolean mask
+                            freqs_with_peak = freqs_with_peak[freq_idx_mask]
 
-                    # find frequency associated with valid peak with highest power/PSD amplitude
-                    max_power_idx = np.argmax(psd_one_sided[valid_peaks_idx_mask])
-                    # apply power threshold (larger of the 2 inputs)
-                    power_threshold = max(abs_power_threshold, relative_power_threshold_percent/100 * psd_one_sided.max())
+                            if len(freqs_with_peak) > 0:
+                                valid_peaks_idx_mask = np.isin(freqs, freqs_with_peak)
+                                # find frequency associated with valid peak with highest power/PSD amplitude
+                                max_power_idx = np.argmax(psd_one_sided[valid_peaks_idx_mask])
+                                # apply power threshold (larger of the 2 inputs)
+                                power_threshold = max(abs_power_threshold, relative_power_threshold_percent/100 * psd_one_sided.max())
 
-                    if psd_one_sided[max_power_idx] >= power_threshold:
-                        peak_data[channel].append(freqs[max_power_idx]) # append peak frequency
-                    else:
-                        peak_data[channel].append(1) # 1, given peak too low power -> Invalid 
+                                if psd_one_sided[max_power_idx] >= power_threshold:
+                                    dominant_freq = freqs[max_power_idx] # append peak frequency
+                                # equivalent to: valid_peaks_idx = np.array([True if freq in freqs_with_peak else False for freq in freqs])
+                            
+                    except (ValueError, Exception) as e:
+                        # Print a warning message but continue processing other windows
+                        # This tells you which file and windo had the problem without crashing
+                        print(f"Warning: AR model fitting dailed for a window in file {i}, channel {channel}. Details: {e}")
+                        # The 'dominant_frequency' is already set to 1, so no need to change it.
+
+                    peak_data[channel].append(dominant_freq) 
             
             # overwrite the data (for one file)
             self.multi_data[i] = np.array(peak_data)
@@ -231,15 +225,15 @@ class AccelerometerPreprocessor(MultiDataLoader):
         step_size = int(self.window_size * (1 - self.percent_overlap/100)) # compute step size that was initially used in _segment_data()
 
         for i, data in enumerate(self.multi_data):
-            mapped_freq = [None] * 3
+            mapped_freq = [[] for _ in range(3)]
 
             for channel in range(3):
 
                 # create window with all elements being the window's respective dominant frequency
                 # e.g. [3,4,...] -> [[3] * window_size, [4] * window_size, ...]
-                mapped_freq_1D = [[freq] * self.window_size for freq in data[channel]]
+                mapped_freq_windows = [[freq] * self.window_size for freq in data[channel]]
                 # flatten the nested list
-                mapped_freq_1D = [val for window in channel for val in window]
+                mapped_freq_1D = [val for window in mapped_freq_windows for val in window]
                 mapped_freq[channel] = mapped_freq_1D
 
             # overwrite the data (for one file)
