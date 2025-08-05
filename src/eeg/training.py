@@ -1,1 +1,0 @@
-# EEG training script
