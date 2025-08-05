@@ -1,5 +1,3 @@
-# NTUT25_SOFTWARE/src/eeg/eeg_preprocessor.py
-
 import mne
 import numpy as np
 import os
@@ -29,13 +27,12 @@ class EEGProcessor:
         self.session_num = session_num
         self.config = config
 
-        self.raw = None  # To hold the raw MNE object (all channels)
-        self.raw_original_all_channels = None # A copy before any dropping/picking for key steps
-        self.epochs = None # To hold the epoched MNE object
-        self.epochs_eeg_only = None # To hold the final EEG-only epoched object
+        self.raw = None
+        self.raw_original_all_channels = None
+        self.epochs = None
+        self.epochs_eeg_only = None
 
-        # Construct file paths
-        self.task_name = "REST" # Consistent with your current data filenames
+        self.task_name = "REST"
         self.raw_fname_base = f"{self.subj_id}_{self.session_num}_PD_{self.task_name}"
         self.raw_fname_full = os.path.join(self.config.RAW_EEG_DATA_DIR, f"{self.raw_fname_base}{self.config.RAW_FNAME_SUFFIX}")
         self.processed_fname = os.path.join(self.config.PROCESSED_EEG_DATA_DIR, f"{self.raw_fname_base}_processed{self.config.RAW_FNAME_SUFFIX}")
@@ -68,8 +65,19 @@ class EEGProcessor:
             except Exception as e:
                 raise Exception(f"Error loading {self.raw_fname_full}: {e}")
 
-        # This copy will be used for operations that need all channels
         self.raw_original_all_channels = self.raw.copy() 
+
+    def _apply_initial_channel_management(self):
+        """
+        Identifies and drops miscellaneous channels (accelerometers).
+        """
+        misc_ch_names = self.raw_original_all_channels.copy().pick_types(misc=True, exclude='bads').ch_names
+        
+        if misc_ch_names:
+            print(f"Dropping miscellaneous channels: {misc_ch_names}")
+            self.raw_original_all_channels.drop_channels(misc_ch_names)
+        else:
+            print("No miscellaneous channels to drop.")
 
     def _apply_filtering_and_rerferencing(self):
         """
@@ -78,19 +86,15 @@ class EEGProcessor:
         """
         print("\n--- Applying Filtering, Line Noise Removal, and Re-referencing ---")
 
-        # SOP 4.6 & 4.5: Bandpass Filtering (FIR 0.5-50 Hz)
-        # This single call removes slow drifts (4.5) and high-frequency noise/line noise (4.6)
         if self.raw_original_all_channels.get_channel_types(picks='eeg'):
             print(f"Applying FIR bandpass filter: {self.config.HIGH_PASS_FREQ}-{self.config.LOW_PASS_FREQ} Hz.")
             self.raw_original_all_channels.filter(l_freq=self.config.HIGH_PASS_FREQ, h_freq=self.config.LOW_PASS_FREQ, 
                                           fir_window='hamming', verbose=False)
         
-        # SOP 4.7: Line Noise Removal (Notch filter)
         if self.config.LINE_FREQ is not None and self.config.LINE_FREQ > 0:
             print(f"Applying notch filter at {self.config.LINE_FREQ} Hz.")
             self.raw_original_all_channels.notch_filter(self.config.LINE_FREQ, verbose=False)
 
-        # SOP 4.9: Re-referencing
         if self.raw_original_all_channels.get_channel_types(picks='eeg'):
             print(f"Applying average reference to EEG channels.")
             self.raw_original_all_channels.set_eeg_reference(ref_channels='average', projection=True, verbose=False)
@@ -98,13 +102,12 @@ class EEGProcessor:
         else:
             print("No EEG channels found for re-referencing. Skipping average reference.")
 
-        # SOP 4.2 (part of it): Set standard montage
         try:
             montage = mne.channels.make_standard_montage('standard_1005') 
             self.raw_original_all_channels.set_montage(montage, on_missing='ignore') 
             print(f"Set montage.")
         except Exception as e:
-            print(f"Warning: Could not set standard montage on raw_full_channels: {e}. Topoplots may not work.")
+            print(f"Warning: Could not set standard montage on raw_original_all_channels: {e}. Topoplots may not work.")
 
     def _segment_data(self):
         """
@@ -113,40 +116,37 @@ class EEGProcessor:
         """
         print("\n--- Segmenting Continuous Data into 3-Second Epochs ---")
         
-        # SOP 4.11.1: Define Events for Epoching
         events, event_id_from_raw = mne.events_from_annotations(self.raw_original_all_channels, event_id=self.config.EVENT_ID)
 
-        # We will create fixed-duration epochs based on the start of the eyes-open/closed segments
         eyes_open_event_ids = [self.config.EVENT_ID['1'], self.config.EVENT_ID['2']]
         eyes_closed_event_ids = [self.config.EVENT_ID['3'], self.config.EVENT_ID['4']]
         
         eyes_open_events = events[np.isin(events[:, 2], eyes_open_event_ids)]
         eyes_closed_events = events[np.isin(events[:, 2], eyes_closed_event_ids)]
         
-        # Create a new set of events representing 3-second, non-overlapping segments
         epoch_duration_samples = int(self.raw_original_all_channels.info['sfreq'] * 3.0)
         
-        # Find start of eyes-open and eyes-closed blocks
-        eyes_open_start_sample = eyes_open_events[0, 0] if len(eyes_open_events) > 0 else 0
-        eyes_closed_start_sample = eyes_closed_events[0, 0] if len(eyes_closed_events) > 0 else 0
-        
         new_events = []
-        # SOP 4.11.2: Create Epochs
-        for start_sample in np.arange(eyes_closed_start_sample, eyes_closed_start_sample + 60*self.raw_original_all_channels.info['sfreq'], epoch_duration_samples):
-             if start_sample < len(self.raw_original_all_channels.times) - epoch_duration_samples:
-                new_events.append([int(start_sample), 0, 200]) # Event ID 200 for 'Eyes_Closed'
+        if len(eyes_closed_events) > 0:
+            eyes_closed_start_sample = eyes_closed_events[0, 0]
+            eyes_closed_end_sample = eyes_closed_events[-1, 0]
+            for start_sample in range(eyes_closed_start_sample, eyes_closed_end_sample, epoch_duration_samples):
+                if start_sample + epoch_duration_samples <= len(self.raw_original_all_channels.times):
+                    new_events.append([int(start_sample), 0, 200]) # Event ID 200 for 'Eyes_Closed'
         
-        for start_sample in np.arange(eyes_open_start_sample, eyes_open_start_sample + 60*self.raw_original_all_channels.info['sfreq'], epoch_duration_samples):
-            if start_sample < len(self.raw_original_all_channels.times) - epoch_duration_samples:
-                new_events.append([int(start_sample), 0, 100]) # Event ID 100 for 'Eyes_Open'
+        if len(eyes_open_events) > 0:
+            eyes_open_start_sample = eyes_open_events[0, 0]
+            eyes_open_end_sample = eyes_open_events[-1, 0]
+            for start_sample in range(eyes_open_start_sample, eyes_open_end_sample, epoch_duration_samples):
+                 if start_sample + epoch_duration_samples <= len(self.raw_original_all_channels.times):
+                    new_events.append([int(start_sample), 0, 100]) # Event ID 100 for 'Eyes_Open'
         
-        new_events = np.array(new_events)
-        if len(new_events) > 0:
-            # Sort events by time
-            new_events = new_events[new_events[:, 0].argsort()]
+        if new_events:
+            all_new_events = np.array(new_events)
+            all_new_events = all_new_events[all_new_events[:, 0].argsort()]
             new_event_id = {'Eyes_Open': 100, 'Eyes_Closed': 200}
             
-            self.epochs = mne.Epochs(self.raw_original_all_channels, new_events, event_id=new_event_id, 
+            self.epochs = mne.Epochs(self.raw_original_all_channels, all_new_events, event_id=new_event_id, 
                                         tmin=0, tmax=3.0, baseline=None, preload=True, verbose=False)
             print(f"Segmented into {len(self.epochs['Eyes_Open'])} 'Eyes_Open' epochs and {len(self.epochs['Eyes_Closed'])} 'Eyes_Closed' epochs.")
         else:
@@ -184,14 +184,13 @@ class EEGProcessor:
             
         self.bad_channels_found = list(np.unique(bad_channels_detected))
         
-        epochs_cleaned = self.epochs.copy()
         if self.bad_channels_found:
             print(f"Identified bad channels for interpolation: {self.bad_channels_found}")
             self.raw_original_all_channels.info['bads'].extend(self.bad_channels_found) 
             self.raw_original_all_channels.info['bads'] = list(np.unique(self.raw_original_all_channels.info['bads']))
             
             self.raw_original_all_channels.interpolate_bads(reset_bads=False, verbose=False) 
-            self.epochs = epochs_initial.copy().interpolate_bads(reset_bads=True, verbose=False) 
+            self.epochs = self.epochs.copy().interpolate_bads(reset_bads=True, verbose=False) 
         else:
             print("No bad channels identified for interpolation.")
             
@@ -237,9 +236,9 @@ class EEGProcessor:
         print("--- APPLE-like Pre-processing Complete ---")
 
     def _final_channel_picking_and_save(self):
-        # The SOP refers to 64-channels, but your MATLAB data had 67 channels
-        # and the MATLAB script's output was 63 channels. Let's stick with that.
-        print("\n--- Final Channel Picking and Saving ---")
+        """
+        Picks only EEG channels (SOP 4.2) and saves the cleaned epochs.
+        """
         self.epochs_eeg_only = self.epochs.copy().pick_types(eeg=True)
         print(f"Final epochs object contains {len(self.epochs_eeg_only.ch_names)} EEG channels.")
 
@@ -257,13 +256,11 @@ class EEGProcessor:
         try:
             self._load_and_merge_raw_data()
             self._apply_initial_channel_management()
-            
-            # --- New SOP-based processing flow ---
             self._apply_filtering_and_rerferencing()
             self._segment_data()
             self._apply_apple_logic()
             self._final_channel_picking_and_save()
-
+            
             print(f"Finished processing {self.subj_id}_Session{self.session_num}. Saved to {self.processed_fname}")
 
         except FileNotFoundError as e:
