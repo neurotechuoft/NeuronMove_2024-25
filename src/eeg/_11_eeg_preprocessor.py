@@ -7,22 +7,10 @@ from mne.annotations import Annotations
 class EEGProcessor:
     """
     A class to encapsulate the preprocessing steps for a single EEG subject/session,
-    based on the SOP document.
+    based on the EEG preprocessing SOP document.
     """
 
     def __init__(self, subj_id, session_num, config):
-        """
-        Initializes the EEGProcessor for a specific subject and session.
-
-        Parameters:
-        ----------
-        subj_id : int
-            The subject ID.
-        session_num : int
-            The session number (1 or 2).
-        config : module
-            The config module containing all global parameters.
-        """
         self.subj_id = subj_id
         self.session_num = session_num
         self.config = config
@@ -40,10 +28,7 @@ class EEGProcessor:
         print(f"\n--- Initializing Processor for Subject: {self.subj_id}, Session: {self.session_num} ---")
 
     def _load_and_merge_raw_data(self):
-        """
-        Loads the raw .fif data for the subject/session, handling the merge case for subj_id 810.
-        (Consolidates SOP 4.1).
-        """
+        """Loads the raw .fif data for the subject/session (SOP4.1)."""
         print(f"Loading raw file: {os.path.basename(self.raw_fname_full)}")
 
         if self.subj_id == 810 and self.session_num == 1:
@@ -68,9 +53,7 @@ class EEGProcessor:
         self.raw_original_all_channels = self.raw.copy() 
 
     def _apply_initial_channel_management(self):
-        """
-        Identifies and drops miscellaneous channels (accelerometers).
-        """
+        """Drops miscellaneous channels (accelerometers), mirror MATLAB behavior."""
         misc_ch_names = self.raw_original_all_channels.copy().pick_types(misc=True, exclude='bads').ch_names
         
         if misc_ch_names:
@@ -80,21 +63,21 @@ class EEGProcessor:
             print("No miscellaneous channels to drop.")
 
     def _apply_filtering_and_rerferencing(self):
-        """
-        Applies filtering, line noise removal, montage, and re-referencing per SOP.
-        (Consolidates SOP 4.5, 4.6, 4.7, 4.9).
-        """
+        """Applies filtering and re-referencing per SOP 4.5, 4.6, 4.7, 4.9."""
         print("\n--- Applying Filtering, Line Noise Removal, and Re-referencing ---")
 
+        # SOP 4.6 & 4.5: Bandpass Filtering (FIR 0.5-50 Hz)
         if self.raw_original_all_channels.get_channel_types(picks='eeg'):
             print(f"Applying FIR bandpass filter: {self.config.HIGH_PASS_FREQ}-{self.config.LOW_PASS_FREQ} Hz.")
             self.raw_original_all_channels.filter(l_freq=self.config.HIGH_PASS_FREQ, h_freq=self.config.LOW_PASS_FREQ, 
                                           fir_window='hamming', verbose=False)
         
+        # SOP 4.7: Line Noise Removal (Notch filter)
         if self.config.LINE_FREQ is not None and self.config.LINE_FREQ > 0:
             print(f"Applying notch filter at {self.config.LINE_FREQ} Hz.")
             self.raw_original_all_channels.notch_filter(self.config.LINE_FREQ, verbose=False)
 
+        # SOP 4.9: Re-referencing (Average)
         if self.raw_original_all_channels.get_channel_types(picks='eeg'):
             print(f"Applying average reference to EEG channels.")
             self.raw_original_all_channels.set_eeg_reference(ref_channels='average', projection=True, verbose=False)
@@ -102,6 +85,7 @@ class EEGProcessor:
         else:
             print("No EEG channels found for re-referencing. Skipping average reference.")
 
+        # SOP 4.2 (part): Set standard montage
         try:
             montage = mne.channels.make_standard_montage('standard_1005') 
             self.raw_original_all_channels.set_montage(montage, on_missing='ignore') 
@@ -116,6 +100,7 @@ class EEGProcessor:
         """
         print("\n--- Segmenting Continuous Data into 3-Second Epochs ---")
         
+        # SOP 4.11: Segmenting based on eyes-open/closed events, Define Events for Epoching
         events, event_id_from_raw = mne.events_from_annotations(self.raw_original_all_channels, event_id=self.config.EVENT_ID)
 
         eyes_open_event_ids = [self.config.EVENT_ID['1'], self.config.EVENT_ID['2']]
@@ -193,18 +178,6 @@ class EEGProcessor:
             self.epochs = self.epochs.copy().interpolate_bads(reset_bads=True, verbose=False) 
         else:
             print("No bad channels identified for interpolation.")
-            
-        # --- 2. Artifact Rejection (Segment-level) (SOP 4.12) ---
-        epochs_before_rejection = len(self.epochs)
-        self.epochs.drop_bad(reject=dict(eeg=self.config.BAD_EPOCH_PEAK_TO_PEAK_UV), 
-                            flat=dict(eeg=self.config.BAD_EPOCH_FLAT_UV), 
-                            verbose=False)
-        
-        all_epoch_indices = np.arange(epochs_before_rejection)
-        kept_epoch_indices = self.epochs.selection
-        self.bad_epochs_indices_found = np.setdiff1d(all_epoch_indices, kept_epoch_indices).tolist()
-        
-        print(f"Rejected {epochs_before_rejection - len(self.epochs)} epochs based on amplitude thresholds and flatness.")
         
         # --- 3. ICA for Artifact Removal (SOP 4.10) ---
         raw_for_ica = self.raw_original_all_channels.copy().filter(l_freq=self.config.ICA_HIGH_PASS_FREQ, h_freq=None, verbose=False)

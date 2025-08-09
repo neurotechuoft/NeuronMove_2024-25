@@ -76,3 +76,5 @@ LINE_FREQ = 60.0        # Line noise frequency in Hz (for a notch filter, e.g., 
 # --- Aggregation and Matching Parameters ---
 AGGREGATED_FNAME = 'SINGLETRIAL_REST_AGG_processed.pkl'
 FINAL_SAMPLING_RATE = 100 # Hz, for downsampling before saving
+
+OVERWRITE_PROCESSED_FILES = False
