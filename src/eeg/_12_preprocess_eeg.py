@@ -1,17 +1,17 @@
-# NTUT25_SOFTWARE/src/eeg/01_preprocess_eeg.py
-
 import os
 import pandas as pd
-from . import config 
-from ._11_eeg_preprocessor import EEGProcessor 
+from . import config
+from ._11_eeg_preprocessor import EEGProcessor # Import the preprocessing class
 
 def main():
     print(f"Project root: {config.PROJECT_ROOT}")
     print(f"Raw EEG data directory: {config.RAW_EEG_DATA_DIR}")
     print(f"Processed EEG data directory: {config.PROCESSED_EEG_DATA_DIR}")
 
+    # Create processed data directory if it doesn't exist
     os.makedirs(config.PROCESSED_EEG_DATA_DIR, exist_ok=True)
 
+    # Load demographic data (optional for subject type lookup)
     try:
         demographics_df = pd.read_excel(os.path.join(config.MISC_DATA_DIR, 'IMPORT_ME.xlsx'))
     except FileNotFoundError:
@@ -30,11 +30,15 @@ def main():
             sessions_to_process = [1]
         
         for session_num in sessions_to_process:
+            # Create an instance of the EEGProcessorSOP class for each subject/session
             processor = EEGProcessor(subj_id, session_num, config)
+            
+            # Run the processing pipeline for this subject/session
             processor.process_subject()
 
     print("\n--- All Preprocessing Runs Attempted ---")
 
+# This block ensures that the main() function is called when the script is executed directly
 if __name__ == '__main__':
     try:
         main()

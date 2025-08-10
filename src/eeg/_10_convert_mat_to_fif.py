@@ -2,19 +2,14 @@ import mne
 import numpy as np
 import scipy.io # For loading .mat files
 import os
-# this is for testing
 
 # --- Import configurations ---
 from .config import (
-    PROJECT_ROOT, RAW_EEG_DATA_DIR, MISC_DATA_DIR,
+    PROJECT_ROOT, RAW_EEG_DATA_DIR, RAW_MATLAB_DATA_DIR,
     PD_SX, CTL_SX, ALL_SUBJECTS, 
     VEOG_CHANNEL_NAME, ACCEL_CHANNEL_NAMES, STIM_CHANNEL_NAME,
     RAW_FNAME_SUFFIX, OVERWRITE_PROCESSED_FILES
 )
-
-# --- Configuration for this conversion script ---
-RAW_MATLAB_DATA_DIR = os.path.join(PROJECT_ROOT, 'data', 'matlab_file') 
-os.makedirs(RAW_MATLAB_DATA_DIR, exist_ok=True) 
 
 # --- Main Conversion Loop ---
 def main():
@@ -22,6 +17,7 @@ def main():
     print(f"Raw MATLAB data directory: {RAW_MATLAB_DATA_DIR}")
     print(f"Output .fif data directory: {RAW_EEG_DATA_DIR}") 
 
+    # Create the output directory for .fif files if it doesn't exist
     os.makedirs(RAW_EEG_DATA_DIR, exist_ok=True)
 
     for subj_id in ALL_SUBJECTS:
@@ -30,22 +26,28 @@ def main():
         sessions_to_process = []
         if is_pd:
             sessions_to_process = [1, 2]
-        else:
+        else: # Assumed to be CTL if not PD for session 1
             sessions_to_process = [1]
         
         for session_num in sessions_to_process:
-            mat_fname_base = f"{subj_id}_{session_num}_PD_REST" # Your confirmed .mat naming
+            # Construct the name for the input MATLAB file
+            mat_fname_base = f"{subj_id}_{session_num}_PD_REST" 
             
-            # --- IMPORTANT: Handle the _REST1.mat files ---
-            # If both _REST.mat AND _REST1.mat exist, which one should be used?
-            # The current loop will only try to load _REST.mat.
-            # If _REST1.mat is the intended file for some or all subjects,
-            # you'll need to adjust `mat_fname_base` or add logic to check for _REST1.mat.
-            # For now, let's assume _REST.mat is the target for a clean run.
-            # If 810 has a separate merge, that's for the _ODDBALL task.
+            # --- Robustly check for _REST.mat or _REST1.mat files ---
+            mat_fname_full_rest = os.path.join(RAW_MATLAB_DATA_DIR, f"{mat_fname_base}.mat")
+            mat_fname_full_rest1 = os.path.join(RAW_MATLAB_DATA_DIR, f"{mat_fname_base}1.mat")
+
+            if os.path.exists(mat_fname_full_rest):
+                mat_fname_to_load = mat_fname_full_rest
+                print(f"Loading MATLAB file: {os.path.basename(mat_fname_to_load)}")
+            elif os.path.exists(mat_fname_full_rest1):
+                mat_fname_to_load = mat_fname_full_rest1
+                print(f"Loading MATLAB file: {os.path.basename(mat_fname_to_load)}")
+            else:
+                print(f"Error: Neither {os.path.basename(mat_fname_full_rest)} nor {os.path.basename(mat_fname_full_rest1)} found. Skipping conversion.")
+                continue # Skip to next subject/session if neither file exists
             
-            mat_fname_full = os.path.join(RAW_MATLAB_DATA_DIR, f"{mat_fname_base}.mat")
-            
+            # Construct the name for the output .fif file
             fif_fname_base = f"{subj_id}_{session_num}_PD_REST" 
             fif_fname_full = os.path.join(RAW_EEG_DATA_DIR, f"{fif_fname_base}{RAW_FNAME_SUFFIX}")
             
@@ -54,33 +56,30 @@ def main():
                 continue
 
             print(f"\n--- Converting Subject: {subj_id}, Session: {session_num} ---")
-            print(f"Loading MATLAB file: {mat_fname_full}")
 
             try:
-                mat_data = scipy.io.loadmat(mat_fname_full, simplify_cells=True, mat_dtype=True, squeeze_me=True)
+                mat_data = scipy.io.loadmat(mat_fname_to_load, simplify_cells=True, mat_dtype=True, squeeze_me=True)
 
                 eeg_struct = mat_data.get('EEG', None)
                 if eeg_struct is None:
-                    print("Warning: 'EEG' variable not found directly. Assuming top-level variables are the EEG struct content.")
                     eeg_struct = mat_data
                 
                 raw_data_array = eeg_struct['data'] 
                 sfreq = eeg_struct['srate']
                 
-                # --- FIX: Extract channel labels from list of dicts ---
+                # --- FIX: Extract channel labels from list of dicts (from Jupyter inspection) ---
                 if 'chanlocs' in eeg_struct:
                     chanlocs_list = eeg_struct['chanlocs']
                     if isinstance(chanlocs_list, list) and all(isinstance(loc, dict) and 'labels' in loc for loc in chanlocs_list):
                         ch_labels_mat = [loc['labels'] for loc in chanlocs_list]
                     elif isinstance(chanlocs_list, dict) and 'labels' in chanlocs_list and isinstance(chanlocs_list['labels'], list):
-                        ch_labels_mat = chanlocs_list['labels'] # Already simplified to a list
+                        ch_labels_mat = chanlocs_list['labels']
                     else:
                         raise ValueError(f"Unexpected structure for chanlocs.labels. Type: {type(chanlocs_list)}")
                 else:
                     raise ValueError("Channel locations ('chanlocs') field not found in EEG struct.")
                 # --- END FIX ---
                 
-                # Verify channel count matches data array
                 if len(ch_labels_mat) != raw_data_array.shape[0]:
                     raise ValueError(f"Channel label count ({len(ch_labels_mat)}) does not match data array channel dimension ({raw_data_array.shape[0]}).")
 
@@ -117,72 +116,56 @@ def main():
 
                 # --- Convert EEGLAB Events to MNE Annotations ---
                 events_eeglab = eeg_struct.get('event', [])
-                if events_eeglab and isinstance(events_eeglab, (list, np.ndarray)): # Check if events_eeglab is a list/array
+                if events_eeglab and isinstance(events_eeglab, (list, np.ndarray)):
                     mne_annotations = []
                     for event in events_eeglab:
-                        onset_sample = event['latency'] - 1 # EEGLAB is 1-indexed, MNE is 0-indexed
-                        duration_samples = 0 # Point event for now
+                        onset_sample = event['latency'] - 1
+                        duration_samples = 0
                         
                         event_type_raw = event['type']
-                        
-                        description_str = "UNPARSED_EVENT" # Default if nothing matches
+                        description_str = "UNPARSED_EVENT"
 
                         if isinstance(event_type_raw, (int, float)):
                             description_str = str(int(event_type_raw))
                         elif isinstance(event_type_raw, str):
-                            # Handle 'S  3', 'S  4', 'S  1', 'S  2'
-                            if event_type_raw.startswith('S') and ' ' in event_type_raw: # Check for 'S' and at least one space
+                            if event_type_raw.startswith('S') and ' ' in event_type_raw:
                                 try:
-                                    # Split by any whitespace and take the last non-empty part
-                                    parts = event_type_raw.split() # Splits by any whitespace
-                                    if parts and parts[-1].isdigit(): # Check if last part exists and is a digit
-                                        description_str = parts[-1] # This creates '1', '2', '3', '4'
+                                    parts = event_type_raw.split()
+                                    if parts and parts[-1].isdigit():
+                                        description_str = parts[-1]
                                     else:
-                                        description_str = event_type_raw # Fallback to raw string
-                                except Exception: # Catch any other parsing errors
-                                    description_str = event_type_raw # Fallback
-                            # Handle 'boundary' events
+                                        description_str = event_type_raw
+                                except Exception:
+                                    description_str = event_type_raw
                             elif event_type_raw.lower() == 'boundary':
                                 description_str = 'boundary'
                             else:
-                                description_str = event_type_raw # For any other string event types
+                                description_str = event_type_raw
 
-                        # Add to MNE annotations list, ONLY IF description_str is not the default unparsed
                         if description_str != "UNPARSED_EVENT":
                             mne_annotations.append((onset_sample / sfreq, duration_samples / sfreq, description_str))
                         else:
                             print(f"Warning: Skipping unparsed event type '{event_type_raw}' (latency {onset_sample}).")
 
-                    # Apply annotations only if there are valid ones
-                    if mne_annotations: 
+                    if mne_annotations:
                         raw_mne.set_annotations(mne.Annotations(
-                            [a[0] for a in mne_annotations], # onsets in seconds
-                            [a[1] for a in mne_annotations], # durations in seconds
-                            [a[2] for a in mne_annotations], # descriptions (string)
+                            [a[0] for a in mne_annotations],
+                            [a[1] for a in mne_annotations],
+                            [a[2] for a in mne_annotations],
                             orig_time=raw_mne.info['meas_date']
                         ), verbose=False)
                         print(f"Converted {len(mne_annotations)} EEGLAB events to MNE Annotations.")
                     else:
                         print("No valid EEGLAB events found to convert (only 'boundary' or unparsed types).")
-                else: # if events_eeglab is None or empty list/np.ndarray
+                else:
                     print("No EEGLAB events found to convert or events structure is unexpected.")
 
-                # --- Save to .fif ---
                 raw_mne.save(fif_fname_full, overwrite=OVERWRITE_PROCESSED_FILES, verbose=False)
                 print(f"Successfully converted and saved to: {fif_fname_full}")
 
             except FileNotFoundError:
-                print(f"Error: MATLAB file {mat_fname_full} not found. Skipping conversion.")
+                print(f"Error: MATLAB file {mat_fname_to_load} not found. Skipping conversion.")
             except Exception as e:
                 print(f"An error occurred during conversion for {subj_id}_{session_num}: {e}")
                 import traceback
                 traceback.print_exc()
-
-# --- Run the main function ---
-if __name__ == '__main__':
-    try:
-        main()
-    except Exception as e:
-        print(f"\nFATAL ERROR during processing: {e}")
-        import traceback
-        traceback.print_exc()
