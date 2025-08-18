@@ -1,0 +1,14 @@
+# clean_environment.yml
+name: pd_tremor_clean
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - jupyter
+  - pandas
+  - numpy
+  - scipy
+  - matplotlib
+  - scikit-learn
+  - pip

@@ -1,0 +1,12 @@
+mne
+h5py
+seaborn
+tensorflow==2.8.0
+keras==2.8.0
+scikit-learn
+keras-preprocessing
+pillow
+imageio
+scikit-image
+mne_icalabel
+autoreject

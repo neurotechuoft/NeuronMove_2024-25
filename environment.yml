@@ -1,44 +1,36 @@
-# environment.yml
-name: pd_tremor
+name: pd_tremor_modern
 channels:
-  - defaults
   - conda-forge
-  - pytorch
+  - defaults
 dependencies:
-  # Python Core 
-  - python=3.9           # Keep Python 3.9 for broader compatibility with TF 2.8.x
+  # Python Core
+  - python=3.10
   - pip
 
-  # MNE-Python and EEG-specific LIbraries
-  - mne
-  - h5py
+  # Scientific Computing Stack
   - numpy
-  - openpyxl  
-  - xlrd
+  - scipy
   - pandas
   - matplotlib
-  - seaborn
-  - spectrum
-  - scipy
-
-  # Deep Learning Core (TensorFlow CPU/GPU)
-  - tensorflow==2.8.0  # <--- PIN TENSORFLOW TO A VERSION THAT CONSISTENTLY USES KERAS 2.X
-  - keras-preprocessing
   - scikit-learn
+  - spectrum
 
-  # Deep Learning - Specific for our use case
+  # Deep Learning Core
+  - tensorflow
+  - keras
+
+  # Additional Packages
+  - jupyter
+  - ipykernel
+  - mne
+  - h5py
+  - seaborn
+  - openpyxl
+  - xlrd
   - pillow
   - imageio
   - scikit-image
 
-  # Jupyter Notebooks
-  - jupyter
-  - ipykernel
-
   - pip:
-    - keras==2.8.0       # <--- PIN STANDALONE KERAS TO THIS VERSION (matches TF 2.8.x internal Keras)
-    - patchify         # Install via pip
-    - segmentation_models # Install via pip
     - mne_icalabel
     - autoreject
-    # - -r requirements.txt
