@@ -4,7 +4,7 @@ from spectrum import arburg, arma2psd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 
-from ._01_get_data import DataLoader, MultiDataLoader
+from .old_01_get_data import DataLoader, MultiDataLoader
 from .config import *
 
 class AccelerometerPreprocessor(MultiDataLoader):
