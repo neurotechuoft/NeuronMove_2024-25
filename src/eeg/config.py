@@ -3,8 +3,6 @@
 
 import os
 
-import os
-
 # --- Project Root and Core Directories ---
 
 # Get the directory of the current file (config.py is in src/eeg/)
@@ -67,3 +65,14 @@ BAD_EPOCH_FLAT_UV = 1e-6 # Flatness threshold for epochs (in Volts, range 0-peak
 
 # --- Filtering Parameters ---
 ICA_HIGH_PASS_FREQ = 1.0 # High-pass filter for ICA fitting (in Hz)
+
+# --- Filtering Parameters based on SOP ---
+HIGH_PASS_FREQ = 0.5    # High-pass filter cutoff in Hz (from SOP 4.6)
+LOW_PASS_FREQ = 50.0    # Low-pass filter cutoff in Hz (from SOP 4.6)
+LINE_FREQ = 60.0        # Line noise frequency in Hz (for a notch filter, e.g., 60Hz or 50Hz)
+
+# --- Aggregation and Matching Parameters ---
+AGGREGATED_FNAME = 'SINGLETRIAL_REST_AGG_processed.pkl'
+FINAL_SAMPLING_RATE = 100 # Hz, for downsampling before saving
+
+OVERWRITE_PROCESSED_FILES = False
