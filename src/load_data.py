@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import config as cfg
 
-PKL_FILE_PATH = cfg.SENSOR_DATA / 'phys_cur_HC_merged.pkl'
-
 def load_data(file_path: Path) -> None:
     """
     Load raw pickel data file.
@@ -79,8 +77,14 @@ def visualize_data(data: dict[str, list[np.ndarray]]) -> None:
         print("Data shape is unexpected for plotting (expected at least 4 columns: Index, X, Y, Z).")
 
 if __name__ == "__main__":
-    
-    sensor_data = load_data(PKL_FILE_PATH)
+    file_names = [
+        'phys_cur_HC_merged.pkl',
+        'phys_cur_PD_merged.pkl'
+    ]
 
-    if sensor_data is not None:
-        visualize_data(sensor_data)
+    for file_name in file_names:
+        file_path = cfg.SENSOR_DATA / file_name
+        sensor_data = load_data(file_path)
+
+        if sensor_data is not None:
+            visualize_data(sensor_data)
