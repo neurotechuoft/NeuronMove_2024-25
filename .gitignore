@@ -7,3 +7,7 @@ __pycache__/
 *.pyc
 *.xlsx
 *.mat
+*.json
+*.bin
+*.txt
+.venv/
