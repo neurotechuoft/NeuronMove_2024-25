@@ -2,67 +2,53 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+import config as cfg
 
-# --- Configuration ---
-base_dir = Path(__file__).resolve().parent.parent
+PKL_FILE_PATH = cfg.SENSOR_DATA / 'phys_cur_HC_merged.pkl'
 
-# Define the exact path to the .pkl file as requested
-PKL_FILE_PATH = base_dir / 'data' / 'raw' / 'parkinson_at_home' / 'sensor_data' / 'phys_cur_HC_merged.pkl'
-
-def load_data(file_path):
+def load_data(file_path: Path) -> None:
     """
-    Loads data from the processed pickle file.
+    Load raw pickel data file.
     """
-    print(f"[Loading Mode] Attempting to load data from: {file_path}")
+    print(f"[Loading Mode] Attempting to load data from: {file_path}") # Debug print
     try:
         with open(file_path, 'rb') as f:
             data = pickle.load(f)
             print("Data successfully loaded.")
             return data
     except FileNotFoundError:
-        print(f"\nERROR: The file was not found at the specified path: {file_path}")
-        print("Please ensure the file exists and the path is correct.")
+        print(f"\nERROR: The file was not found at {file_path}") # Debug print
         return None
     except Exception as e:
-        print(f"\nERROR loading data: Could not unpickle the file. {e}")
+        print(f"\nERROR loading data: Could not unpickle the file. {e}") # Debug print
         return None
 
-def visualize_data(data):
+def visualize_data(data: dict[str, list[np.ndarray]]) -> None:
     """
     Creates a two-panel visualization for the first participant's accelerometer and gyroscope data.
     """
     if not data or 'accel' not in data or not data['accel']:
-        print("No valid sensor data available for visualization.")
+        print("No valid sensor data available for visualization.") # Debug print
         return
 
-    # Get the data for the first participant (index 0)
-    accel = data['accel'][0]
+    accel = data['accel'][0] # Get the data for the first participant (index 0)
     gyro = data['gyro'][0]
 
-    # Transpose the data from (4, N) to (N, 4) for plotting
-    # N=samples, 4=Time/Index + 3 axes (X, Y, Z)
-    accel_T = accel.T
-    gyro_T = gyro.T
+    accel_T = accel.T   # Transpose the data from (4, N) to (N, 4) for plotting
+    gyro_T = gyro.T     # N=samples, 4=Time/Index + 3 axes (X, Y, Z)
     
-    # Check for expected shape (at least 4 columns: Time/Index, X, Y, Z)
-    if accel_T.shape[1] >= 4 and gyro_T.shape[1] >= 4:
-        
-        # --- FIX: Ensure Accelerometer and Gyroscope arrays have the same length ---
-        accel_len = accel_T.shape[0]
+    if accel_T.shape[1] >= 4 and gyro_T.shape[1] >= 4:      # Check for expected shape (at least 4 columns: Time/Index, X, Y, Z)
+
+        accel_len = accel_T.shape[0]        # Ensure Accelerometer and Gyroscope arrays have the same length -- taking both from index 0
         gyro_len = gyro_T.shape[0]
         
-        # Find the minimum length
         min_samples = min(accel_len, gyro_len)
-        
-        # Truncate both arrays to the minimum length
         accel_T = accel_T[:min_samples, :]
-        gyro_T = gyro_T[:min_samples, :]
+        gyro_T = gyro_T[:min_samples, :]         # Truncate both arrays to the minimum length
         
-        # Generate the time index based on the unified length
-        time_index = np.arange(min_samples) 
-        
-        print(f"Visualization: Truncating data to {min_samples} samples for matching dimensions.")
-        # --- End FIX ---
+        time_index = np.arange(min_samples)          # Generate the time index based on the unified length
+
+        print(f"Visualization: Truncating data to {min_samples} samples for matching dimensions.") # Debug print
         
         # --- Visualization ---
         fig, axes = plt.subplots(2, 1, figsize=(15, 8), sharex=True)
@@ -87,17 +73,14 @@ def visualize_data(data):
         axes[1].legend(loc='upper right')
         axes[1].grid(True, linestyle='--', alpha=0.6)
 
-        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        plt.tight_layout(rect=[0, 0, 1, 0.96]) # type: ignore
         plt.show()
     else:
         print("Data shape is unexpected for plotting (expected at least 4 columns: Index, X, Y, Z).")
 
-# --- Main Execution Flow ---
 if __name__ == "__main__":
     
-    # Load the data from the .pkl file
     sensor_data = load_data(PKL_FILE_PATH)
 
-    # Visualize the result if data was loaded successfully
     if sensor_data is not None:
         visualize_data(sensor_data)
