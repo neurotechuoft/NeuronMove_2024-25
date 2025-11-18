@@ -1,6 +1,13 @@
+##=============================================================
+# File: src/_03_add_pretremor.py
+# Description: Adds pre-tremor labels to accelerometer data files. 
+# This file may be used after we have a good classification of tremor events.
+##=============================================================
+
 import os
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 class PreTremorLabeler:
     """
@@ -93,7 +100,10 @@ def run_pre_tremor_labeling(input_dir, output_dir):
             print(f"An error occurred while processing {file_path}: {e}")
             
 if __name__ == "__main__":
-    input_dir = "/Users/patriciawatanabe/Projects/Neurotech/NTUT25_Software/data/accelerometer/processed/"
-    output_dir = "/Users/patriciawatanabe/Projects/Neurotech/NTUT25_Software/data/accelerometer/processed/"
-    
+    base_dir = Path(__file__).parent.parent
+    print(base_dir)
+
+    input_dir = base_dir / "data" / "raw" / "new_mexico" / "accelerometer"
+    output_dir = base_dir / "data" / "raw" / "new_mexico" / "labeled"
+
     run_pre_tremor_labeling(input_dir, output_dir)

@@ -1,22 +1,35 @@
 import os
-from src.accelerometer._02_tremor_labeling import TremorDetector  
+from pathlib import Path
+from src._01_tremor_detection import TremorDetector  
 
 def run_pipeline_on_all_files(input_directory, output_directory):
     """
-    Orchestrates the tremor detection pipeline on all files in a directory.
+    Orchestrates the tremor detection pipeline on all files in a directory,
+    EXCLUDING files located in the '/HC/' subdirectory.
     """
     # Find all accelerometer files in the input directory
     file_paths = TremorDetector.find_files(input_directory)
-    print(f"Found {len(file_paths)} files to process.")
     
-    if not file_paths:
-        print("No files found. Exiting.")
+    # --- NEW FILTERING STEP: EXCLUDE HC FILES ---
+    initial_count = len(file_paths)
+    
+    # Filter out any file path that contains the '/HC/' folder marker (for both Unix and Windows)
+    filtered_file_paths = [
+        p for p in file_paths 
+        if '/HC/' not in str(p) and '\\HC\\' not in str(p)
+    ]
+    # --- END FILTERING STEP ---
+
+    print(f"Found {initial_count} files total. Filtering to {len(filtered_file_paths)} non-HC files to process.")
+    
+    if not filtered_file_paths:
+        print("No PD or other files found for processing. Exiting.")
         return
 
     # Ensure the output directory exists
     os.makedirs(output_directory, exist_ok=True)
     
-    for file_path in file_paths:
+    for file_path in filtered_file_paths:
         try:
             print(f"\nProcessing file: {os.path.basename(file_path)}")
             
@@ -30,7 +43,8 @@ def run_pipeline_on_all_files(input_directory, output_directory):
             detector.apply_windowing()
             detector.calculate_psd()
             detector.create_features_dataframe()
-            detector.apply_power_threshold()
+            # Assuming you will tune this based on the previous discussion:
+            detector.apply_power_threshold() 
             detector.upsample_data()
             detector.smooth_and_combine_data()
             detector.extract_long_tremors()
@@ -50,8 +64,12 @@ def run_pipeline_on_all_files(input_directory, output_directory):
 
 if __name__ == "__main__":
     # --- Configuration ---
-    input_dir = "/Users/patriciawatanabe/Projects/Neurotech/NTUT25_Software/data/accelerometer/raw/"
-    output_dir = "/Users/patriciawatanabe/Projects/Neurotech/NTUT25_Software/data/accelerometer/processed/"
+    base_dir = Path(__file__).parent.parent
+    print(base_dir)
+
+    # Input directory still points to the parent of HC/PD
+    input_dir = base_dir / "data" / "raw" / "new_mexico" / "accelerometer"
+    output_dir = base_dir / "data" / "raw" / "new_mexico" / "labeled"
     
     run_pipeline_on_all_files(input_dir, output_dir)
     print("\nAll files processed.")

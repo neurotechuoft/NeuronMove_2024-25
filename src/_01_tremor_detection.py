@@ -7,6 +7,7 @@ from spectrum import pburg
 from IPython.display import display, HTML
 import subprocess
 import io
+from pathlib import Path
 
 
 class TremorDetector:
@@ -206,7 +207,7 @@ class TremorDetector:
         print(self.df_features.tail())
         print("\nDataFrame Shape:", self.df_features.shape)
 
-    def apply_power_threshold(self, threshold_divisor=10):
+    def apply_power_threshold(self):
         """
         Applies a power threshold to refine the tremor labels.
         """
@@ -224,7 +225,7 @@ class TremorDetector:
             # Calculate the threshold for the current axis only
             axis_data = df_features_final[df_features_final['axis'] == axis]
             max_peak_power = axis_data['peak_power'].max()
-            threshold = max_peak_power / threshold_divisor
+            threshold = max_peak_power / 100
             
             # Apply the threshold to the current axis
             df_features_final.loc[
@@ -364,7 +365,9 @@ class TremorDetector:
 
 if __name__ == "__main__":
     # Define the path to the specific file you want to test
-    specific_file_path = "/Users/patriciawatanabe/Projects/Neurotech/NTUT25_Software/data/accelerometer/raw/801_1_accelerometer.pkl"
+    base_dir = Path(__file__).parent.parent
+
+    specific_file_path = base_dir / "data" / "raw" / "new_mexico" / "accelerometer"/ "801_1_accelerometer.pkl"
     
     # Instantiate the TremorDetector class
     detector = TremorDetector(data_path=specific_file_path)
