@@ -49,15 +49,13 @@ def window_xyz(
     return X, np.asarray(y_out, dtype=np.int64)
 
 def preprocess_and_window(
-    csv_path: str,
+    df: pd.DataFrame,
     accel_cols=("aX", "aY", "aZ"),
     label_col="Result",
     fs: int = FS_TARGET,
     win_sec: float = 3.0,
     overlap: float = 0.9,
 ):
-
-    df = pd.read_csv(csv_path)
 
     ax = df[accel_cols[0]].to_numpy(dtype=float)
     ay = df[accel_cols[1]].to_numpy(dtype=float)
