@@ -19,7 +19,7 @@ Trying to keep one doc so we’re not all asking “wait is this labeled per win
 | What | Link / where | Notes |
 |------|----------------|-------|
 | Parkinson’s @ Home | Drive — **path still needed** | IMU + annotations; copy lives on team drive |
-| Kaggle MPU9250 tremor | https://www.kaggle.com/datasets/aaryapandya/hand-tremor-dataset-collected-using-mpu9250-sensor | need kaggle login |
+| Kaggle MPU9250 tremor | https://www.kaggle.com/datasets/aaryapandya/hand-tremor-dataset-collected-using-mpu9250-sensor | Local copy: `data/external/kaggle_mpu9250/Dataset.csv` + README there. **3 MPU9250** on hand; `Result`: **1 = shaking**, **0 = stable**; ~28k rows; **mag = -1** (use acc+gyro); **License: Unknown** on Kaggle |
 | Zenodo ALAMEDA | https://zenodo.org/records/10782573 | CSV with 92 features per window + tremor labels — **not** raw IMU in that file. not fully vetted yet |
 
 ---

@@ -27,8 +27,8 @@ Goes with `DATA_SOURCES.md` and the manifest csv. Mostly spreadsheet + asking pe
 
 Rough order that’s usually less painful:
 
-1. zenodo alameda — one csv
-2. kaggle — need account
+1. ~~kaggle MPU9250~~ — local: `data/external/kaggle_mpu9250/` (see README there)
+2. zenodo alameda — one csv
 3. ieee biostamp — dataport login, remember subject-level only
 4. github clone — list what’s inside before mixing with other data
 
