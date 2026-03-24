@@ -24,14 +24,19 @@ Trying to keep one doc so we’re not all asking “wait is this labeled per win
 
 ---
 
-## Unlabeled pool / pretrain only / use carefully
+## Unlabeled pool + “subject-level only” sources (semi-supervised plan)
+
+What the team called out: **unlabeled** = **New Mexico** + **raw PADS** (paths below).  
+Also: **PD vs HC** (or study-level) **not** sample-level labels — **don’t treat every window as a class label** without a real design.
 
 | What | Link / where | Notes |
 |------|----------------|-------|
-| PADS | `data/raw/pads-...` and `preprocessed/` in this repo | we already have scripts + baseline RF on stratified labels; raw can still be used as unlabeled for SSL if we want |
-| New Mexico | ??? | brought up in team sync — **still need where it actually is** |
-| PD-BioStampRC21 | https://ieee-dataport.org/open-access/pd-biostamprc21-parkinsons-disease-accelerometry-dataset-five-wearable-sensor-study-0 | PD vs HC at subject level — ieee dataport account |
-| jiehu01 github tremor repo | https://github.com/jiehu01/Parkinson-s-Disease-Tremor-Dataset | bunch of IMU datasets, severity 0–3 in readme — double-check each sub-dataset before mixing |
+| **New Mexico** | TBD | Unlabeled pool — add link when someone shares it (`data/external/new_mexico/README.md`) |
+| **PADS raw** | `data/raw/pads-parkinsons-disease-smartwatch-dataset-1.0.0/` | Raw + scripts in repo; **pretrain without labels** or use stratified labels only when you mean to |
+| **PD-BioStampRC21** | [IEEE DataPort](https://ieee-dataport.org/open-access/pd-biostamprc21-parkinsons-disease-accelerometry-dataset-five-wearable-sensor-study-0) | PD vs HC / protocol-level — **not** per-sample tremor labels; **large** download; optional |
+| **jiehu01 GitHub** (autoencoder) | [repo](https://github.com/jiehu01/Parkinson-s-Disease-Tremor-Dataset) | Lots of IMU tremor data for **autoencoder**-style pretraining; **cite** per sub-dataset |
+
+**Preprocessed PADS** (`preprocessed/movement/`, stratified CSV) is still the **baseline supervised** path — same `data/raw/pads` tree, different use.
 
 ---
 
@@ -73,7 +78,6 @@ Extra: `DATA_MANIFEST_TEMPLATE.csv` is the spreadsheet version of this; fill pat
 
 ## todo (curation)
 
-- [x] Parkinson@Home Drive link in docs + manifest
-- [ ] new mexico when people reply
-- [ ] fill manifest when something gets downloaded
-- [ ] ping whoever’s training when manifest isn’t all TBD anymore
+- [x] Parkinson@Home Drive + Kaggle + Zenodo + links for SSL pool (PADS raw, BioStamp, jiehu01, New Mexico)
+- [ ] **New Mexico** — path when someone sends it
+- [ ] Ping whoever’s training + rename manifest if the team wants `DATA_MANIFEST.csv`

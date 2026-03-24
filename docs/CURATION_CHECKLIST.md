@@ -4,38 +4,37 @@ Goes with `DATA_SOURCES.md` and the manifest csv. Mostly spreadsheet + asking pe
 
 ---
 
-**Already started**
+**Done (inventory + docs)**
 
-- [x] DATA_SOURCES rough draft
-- [x] manifest template csv
-- [x] this checklist
+- [x] `DATA_SOURCES.md` — all team-listed datasets + links + label semantics
+- [x] `DATA_MANIFEST_TEMPLATE.csv` — one row per source with paths/notes
+- [x] **Kaggle** — `data/external/kaggle_mpu9250/` + CSV + README
+- [x] **Zenodo ALAMEDA** — `data/external/zenodo_alameda/` + CSV + README
+- [x] **Parkinson@Home** — [Drive link](https://drive.google.com/drive/folders/1XlzJAWlcK7XAoa4dr-TLPmwOjOw35bR4) in docs + manifest
+- [x] **IEEE PD-BioStampRC21** — `data/external/ieee_biostamp_rc21/README.md` (download optional; huge)
+- [x] **jiehu01 GitHub** — `data/external/github_jiehu01_tremor/README.md` (clone optional)
+- [x] **New Mexico** — `data/external/new_mexico/README.md` placeholder until path exists
 
 ---
 
-**PADS / repo (can do without new downloads)**
+**PADS / repo**
 
-- [ ] check if `preprocessed/` actually exists on your laptop (sometimes people never ran preprocessing)
-- [ ] if `stratified_subset_file_list.csv` exists, count roughly how many patients / rows → put in manifest instead of TBD
-- [ ] sampling rate is 100hz and window length 976 in baseline script — already noted in DATA_SOURCES
+- [ ] If `preprocessed/stratified_subset_file_list.csv` exists locally, count rows → put in manifest **PADS** row
+- [ ] If not, run PADS preprocessing when the team is ready (not a curation-only task)
 
-**Drive**
+---
 
-- [x] parkinson’s @ home — [Drive folder](https://drive.google.com/drive/folders/1XlzJAWlcK7XAoa4dr-TLPmwOjOw35bR4) linked in DATA_SOURCES + manifest
+**Still blocking on others**
 
-**External stuff (when you have time)**
+- [ ] **New Mexico** — link or folder from team → update README + manifest (`url_or_drive_note` + `local_path`)
 
-Rough order that’s usually less painful:
-
-1. ~~kaggle MPU9250~~ — local: `data/external/kaggle_mpu9250/` (see README there)
-2. ~~zenodo alameda~~ — CSV in `data/external/zenodo_alameda/` (~4152 windows)
-3. ieee biostamp — dataport login, remember subject-level only
-4. github clone — list what’s inside before mixing with other data
+---
 
 **Handoff**
 
-- [ ] when manifest is mostly filled, rename copy to `DATA_MANIFEST.csv` or whatever team agrees on
-- [ ] tell whoever’s training: paths + what’s labeled how
+- [ ] Tell whoever’s training: read `DATA_SOURCES.md` + `data/external/*/README.md`; CSVs under `data/external/` are gitignored
+- [ ] Optional: copy `DATA_MANIFEST_TEMPLATE.csv` → `DATA_MANIFEST.csv` when the team freezes the sheet
 
 ---
 
-**Reminder for everyone:** if data has multiple rows per person, split by **subject id** not random rows. Otherwise metrics lie.
+**Reminder:** split by **subject / participant id** when one person has many windows — not random rows.
