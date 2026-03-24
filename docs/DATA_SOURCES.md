@@ -20,7 +20,7 @@ Trying to keep one doc so we’re not all asking “wait is this labeled per win
 |------|----------------|-------|
 | Parkinson’s @ Home | **[Google Drive folder](https://drive.google.com/drive/folders/1XlzJAWlcK7XAoa4dr-TLPmwOjOw35bR4)** | Same README structure as below; on Drive you also have **`.csv data`** + **`.csv labels`**, **formatted data**, etc. Full `.mat`/CSV on Drive or local copy; repo has `data/raw/parkinson_at_home/README.md` |
 | Kaggle MPU9250 tremor | https://www.kaggle.com/datasets/aaryapandya/hand-tremor-dataset-collected-using-mpu9250-sensor | Local copy: `data/external/kaggle_mpu9250/Dataset.csv` + README there. **3 MPU9250** on hand; `Result`: **1 = shaking**, **0 = stable**; ~28k rows; **mag = -1** (use acc+gyro); **License: Unknown** on Kaggle |
-| Zenodo ALAMEDA | https://zenodo.org/records/10782573 | CSV with 92 features per window + tremor labels — **not** raw IMU in that file. not fully vetted yet |
+| Zenodo ALAMEDA | https://zenodo.org/records/10782573 | Local: `data/external/zenodo_alameda/ALAMEDA_PD_tremor_dataset.csv` + README. **~4152 windows**; **92 feat cols + 4 binary tremor cols**; **CC BY 4.0**; **not raw IMU**; split by **`subject_id`** |
 
 ---
 
