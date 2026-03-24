@@ -20,8 +20,7 @@ Goes with `DATA_SOURCES.md` and the manifest csv. Mostly spreadsheet + asking pe
 
 **Drive**
 
-- [ ] get parkinson’s @ home folder link from whoever has it on drive
-- [ ] paste link or path into manifest `url_or_drive_note` / `local_path` when you have a copy
+- [x] parkinson’s @ home — [Drive folder](https://drive.google.com/drive/folders/1XlzJAWlcK7XAoa4dr-TLPmwOjOw35bR4) linked in DATA_SOURCES + manifest
 
 **External stuff (when you have time)**
 
