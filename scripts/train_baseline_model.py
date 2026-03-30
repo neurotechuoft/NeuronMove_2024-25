@@ -323,16 +323,16 @@ def main():
     print("Evaluating on test set...")
     y_pred = rf.predict(X_test_scaled)
     test_accuracy = accuracy_score(y_test, y_pred)
-    
+
     print(f"\nTest Accuracy: {test_accuracy:.4f} ({test_accuracy*100:.2f}%)")
     print("\nClassification Report:")
-    print(classification_report(y_test, y_pred, 
+    print(classification_report(y_test, y_pred,
                                 target_names=["Healthy", "Parkinson's", "Other MD"]))
-    
+
     print("\nConfusion Matrix:")
     cm = confusion_matrix(y_test, y_pred)
     print(cm)
-    
+
     # Cross-validation
     print("\n" + "=" * 60)
     print("Performing 5-fold cross-validation...")
